@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#050a14">
+<title>Jarvis</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body {
+    height:100%; overflow:hidden;
+    background:#050a14; color:#e6f2ff;
+    font-family:-apple-system,"Segoe UI",system-ui,Roboto,sans-serif;
+    user-select:none;
+  }
+  #app { height:100%; display:flex; flex-direction:column; }
+
+  /* Header */
+  header {
+    padding:14px 18px; display:flex; align-items:center; justify-content:space-between;
+    border-bottom:1px solid rgba(90,180,255,.14);
+    background:rgba(10,22,42,.85); backdrop-filter:blur(10px);
+    position:relative; z-index:10;
+  }
+  header h1 {
+    font-size:16px; font-weight:800; letter-spacing:3px;
+    background:linear-gradient(180deg,#fff,#4fc8ff);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  #status {
+    font-size:10px; letter-spacing:1.5px; padding:4px 10px; border-radius:99px;
+    background:rgba(80,200,255,.1); color:#7fc8e8; font-weight:700;
+    transition: all 0.2s ease;
+  }
+  #status.listening { background:rgba(255,80,120,.18); color:#ff7a95; animation:pulse 1s infinite; }
+  #status.thinking  { background:rgba(160,120,255,.2); color:#b79cff; }
+  @keyframes pulse { 50% { opacity:.55; } }
+
+  /* Chat */
+  #chat {
+    flex:1; overflow-y:auto; padding:16px 14px 8px;
+    display:flex; flex-direction:column; gap:10px;
+    scroll-behavior:smooth;
+  }
+  .msg {
+    max-width:82%; padding:10px 14px; border-radius:16px;
+    font-size:14.5px; line-height:1.45; word-wrap:break-word;
+    animation:fadeIn .22s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } }
+  .msg.user {
+    align-self:flex-end; background:linear-gradient(135deg,#1f8ad8,#3ea8ff);
+    color:#fff; border-bottom-right-radius:4px;
+  }
+  .msg.assistant {
+    align-self:flex-start; background:rgba(30,52,82,.7);
+    border:1px solid rgba(90,180,255,.14); border-bottom-left-radius:4px;
+  }
+  .msg.system {
+    align-self:center; font-size:11.5px; color:#7a9bb8; text-align:center;
+    background:rgba(80,140,200,.08); padding:6px 12px; border-radius:8px; letter-spacing:.5px;
+  }
+
+  /* Composer */
+  #composer {
+    padding:14px 14px 22px;
+    background:rgba(10,22,42,.9); backdrop-filter:blur(10px);
+    border-top:1px solid rgba(90,180,255,.14);
+    display:flex; align-items:center; gap:10px;
+  }
+  #micBtn {
+    flex-shrink:0; width:64px; height:64px; border-radius:50%;
+    border:none; cursor:pointer;
+    background:radial-gradient(circle at 35% 30%,#5fd8ff,#1f8ad8 55%,#0a5a80);
+    box-shadow:0 0 24px rgba(80,200,255,.6),inset 0 -4px 10px rgba(0,0,0,.35);
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .12s ease,box-shadow .12s ease;
+  }
+  #micBtn:active { transform:scale(.94); }
+  #micBtn.listening {
+    background:radial-gradient(circle at 35% 30%,#ff8fab,#ff3d68 55%,#a01040);
+    box-shadow:0 0 32px rgba(255,80,120,.85),inset 0 -4px 10px rgba(0,0,0,.35);
+  }
+  #micBtn svg { width:26px; height:26px; fill:#fff; }
+  #typeRow { flex:1; display:flex; gap:8px; }
+  #typeInput {
+    flex:1; padding:12px 16px; border-radius:99px;
+    background:rgba(20,40,70,.6); border:1px solid rgba(90,180,255,.2);
+    color:#fff; font-size:14px; font-family:inherit; outline:none;
+    transition: border-color 0.2s;
+  }
+  #typeInput:focus { border-color:rgba(90,180,255,.6); }
+  #sendBtn {
+    padding:0 20px; border:none; border-radius:99px; cursor:pointer;
+    background:linear-gradient(180deg,#4fc8ff,#1f8ad8);
+    color:#04121d; font-weight:800; font-size:13px; letter-spacing:1px;
+    font-family:inherit;
+  }
+
+  /* Settings */
+  #settingsBtn {
+    background:none; border:none; color:#7fc8e8; cursor:pointer;
+    font-size:20px; padding:4px 8px;
+  }
+  #settings {
+    position:fixed; inset:0; z-index:100; display:none;
+    background:rgba(5,10,20,.96); backdrop-filter:blur(12px);
+    padding:24px 20px; overflow-y:auto;
+  }
+  #settings.open { display:block; }
+  #settings h2 { font-size:18px; margin-bottom:20px; letter-spacing:1px; }
+  .field { margin-bottom:18px; }
+  .field label {
+    display:block; font-size:10px; letter-spacing:2px;
+    color:#7fc8e8; font-weight:700; margin-bottom:7px;
+  }
+  .field input, .field select, .field textarea {
+    width:100%; padding:12px 14px; border-radius:10px;
+    background:rgba(20,40,70,.7); border:1px solid rgba(90,180,255,.2);
+    color:#fff; font-size:14px; font-family:inherit; outline:none;
+  }
+  .field textarea { resize:vertical; min-height:120px; line-height:1.5; }
+  .field small { display:block; font-size:11px; color:#6a8aa8; margin-top:6px; line-height:1.5; }
+  #saveSettings {
+    width:100%; padding:16px; border:none; border-radius:12px; cursor:pointer;
+    background:linear-gradient(180deg,#4fc8ff,#1f8ad8);
+    color:#04121d; font-weight:800; font-size:14px; letter-spacing:2px;
+    font-family:inherit; margin-top:8px;
+  }
+  #closeSettings {
+    position:absolute; top:20px; right:20px;
+    background:none; border:none; color:#7fc8e8; font-size:26px; cursor:pointer;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>JARVIS</h1>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span id="status">READY</span>
+      <button id="settingsBtn">⚙</button>
+    </div>
+  </header>
+
+  <div id="chat"></div>
+
+  <div id="composer">
+    <button id="micBtn" title="Hold to talk">
+      <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
+    </button>
+    <div id="typeRow">
+      <input id="typeInput" type="text" placeholder="Or type a message…" autocomplete="off">
+      <button id="sendBtn">SEND</button>
+    </div>
+  </div>
+</div>
+
+<div id="settings">
+  <button id="closeSettings">✕</button>
+  <h2>Settings</h2>
+
+  <div class="field">
+    <label>GROQ API KEY</label>
+    <input id="apiKey" type="password" placeholder="gsk_...">
+    <small>Get a free key at console.groq.com. Stored locally on your device.</small>
+  </div>
+
+  <div class="field">
+    <label>MODEL</label>
+    <select id="model">
+      <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile (Best)</option>
+      <option value="llama-3.1-8b-instant">llama-3.1-8b-instant (Fastest)</option>
+      <option value="qwen/qwen3-32b">qwen3-32b</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>SYSTEM PROMPT</label>
+    <textarea id="sysPrompt"></textarea>
+    <small>Keeps the AI from writing paragraphs.</small>
+  </div>
+
+  <div class="field">
+    <label>VOICE</label>
+    <select id="voiceSel"></select>
+    <small>Uses your device's built-in voice engine.</small>
+  </div>
+
+  <button id="saveSettings">SAVE SETTINGS</button>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // The default prompt strictly enforces short, voice-friendly answers
+  const DEFAULT_PROMPT =
+    "You are Jarvis, a voice assistant. This is a SPOKEN conversation. " +
+    "Answer in 1-3 short sentences. Keep replies under 30 words unless the user explicitly asks for detail. " +
+    "No bullet points, no markdown, no lists. Say numbers and dates in spoken form. " +
+    "If the user says 'call X' or 'phone X', use the make_phone_call tool with X as contact_name. " +
+    "If you don't know something, say so in one sentence.";
+
+  const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+
+  // Tool definition for calling contacts
+  const callTool = {
+    type: 'function',
+    function: {
+      name: 'make_phone_call',
+      description: 'Call a contact by name when the user asks to phone someone.',
+      parameters: {
+        type: 'object',
+        properties: {
+          contact_name: { type: 'string', description: 'Name of the person to call' }
+        },
+        required: ['contact_name']
+      }
+    }
+  };
+
+  const state = {
+    messages: [],
+    apiKey: localStorage.getItem('jarvis_key') || '',
+    model: localStorage.getItem('jarvis_model') || 'llama-3.3-70b-versatile',
+    sysPrompt: localStorage.getItem('jarvis_prompt') || DEFAULT_PROMPT,
+    voice: localStorage.getItem('jarvis_voice') || '',
+    listening: false,
+    busy: false
+  };
+
+  // DOM Elements
+  const chatEl     = document.getElementById('chat');
+  const statusEl   = document.getElementById('status');
+  const micBtn     = document.getElementById('micBtn');
+  const typeInput  = document.getElementById('typeInput');
+  const sendBtn    = document.getElementById('sendBtn');
+  const settingsEl = document.getElementById('settings');
+  const apiKeyEl   = document.getElementById('apiKey');
+  const modelEl    = document.getElementById('model');
+  const promptEl   = document.getElementById('sysPrompt');
+  const voiceSel   = document.getElementById('voiceSel');
+
+  // Load saved settings into UI
+  apiKeyEl.value = state.apiKey;
+  modelEl.value = state.model;
+  promptEl.value = state.sysPrompt;
+
+  // Settings Toggle
+  document.getElementById('settingsBtn').onclick = () => settingsEl.classList.add('open');
+  document.getElementById('closeSettings').onclick = () => settingsEl.classList.remove('open');
+  
+  // Save Settings
+  document.getElementById('saveSettings').onclick = () => {
+    state.apiKey = apiKeyEl.value.trim();
+    state.model = modelEl.value;
+    state.sysPrompt = promptEl.value.trim() || DEFAULT_PROMPT;
+    state.voice = voiceSel.value;
+    
+    localStorage.setItem('jarvis_key', state.apiKey);
+    localStorage.setItem('jarvis_model', state.model);
+    localStorage.setItem('jarvis_prompt', state.sysPrompt);
+    localStorage.setItem('jarvis_voice', state.voice);
+    
+    settingsEl.classList.remove('open');
+    addSystem('Settings saved.');
+  };
+
+  // UI Helpers
+  function setStatus(text, cls) {
+    statusEl.textContent = text;
+    statusEl.className = cls || '';
+  }
+
+  function addMessage(role, text) {
+    const el = document.createElement('div');
+    el.className = 'msg ' + role;
+    el.textContent = text;
+    chatEl.appendChild(el);
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+  function addSystem(text) { addMessage('system', text); }
+
+  // --- TEXT TO SPEECH (TTS) ---
+  const synth = window.speechSynthesis;
+  let voices = [];
+
+  function loadVoices() {
+    voices = synth.getVoices();
+    voiceSel.innerHTML = '<option value="">Default System Voice</option>';
+    voices.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.name;
+      opt.textContent = `${v.name} (${v.lang})`;
+      if (v.name === state.voice) opt.selected = true;
+      voiceSel.appendChild(opt);
+    });
+  }
+  
+  if ('speechSynthesis' in window) {
+    loadVoices();
+    synth.onvoiceschanged = loadVoices;
+  }
+
+  function speak(text) {
+    if (!('speechSynthesis' in window)) return;
+    synth.cancel(); // Stop any current speech
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US';
+    u.rate = 1.05;
+    u.pitch = 1.0;
+    if (state.voice) {
+      const v = voices.find(x => x.name === state.voice);
+      if (v) u.voice = v;
+    }
+    synth.speak(u);
+  }
+
+  // --- SPEECH TO TEXT (STT) ---
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+
+  if (SR) {
+    recognition = new SR();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      state.listening = true;
+      micBtn.classList.add('listening');
+      setStatus('LISTENING…', 'listening');
+    };
+
+    recognition.onresult = (ev) => {
+      const text = ev.results[0][0].transcript.trim();
+      if (text) handleUserInput(text);
+    };
+
+    recognition.onerror = (ev) => {
+      setStatus('MIC ERROR', '');
+      addSystem('Mic error: ' + ev.error);
+      state.listening = false;
+      micBtn.classList.remove('listening');
+    };
+
+    recognition.onend = () => {
+      state.listening = false;
+      micBtn.classList.remove('listening');
+      if (!state.busy) setStatus('READY', '');
+    };
+  } else {
+    addSystem('Speech recognition not available on this device. Please type.');
+  }
+
+  // Mic Button Hold to talk
+  micBtn.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    if (!recognition) { addSystem('Mic unsupported.'); return; }
+    if (state.busy) return;
+    try { recognition.start(); } catch (err) {}
+  });
+
+  micBtn.addEventListener('pointerup', (e) => {
+    e.preventDefault();
+    if (recognition && state.listening) {
+      try { recognition.stop(); } catch (_) {}
+    }
+  });
+
+  // Text Input Submit
+  sendBtn.onclick = () => {
+    const t = typeInput.value.trim();
+    if (!t || state.busy) return;
+    typeInput.value = '';
+    handleUserInput(t);
+  };
+  typeInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') sendBtn.click();
+  });
+
+  // --- MAIN AI LOOP ---
+  async function handleUserInput(text) {
+    if (state.busy) return;
+    if (!state.apiKey) {
+      addSystem('Add your Groq API key in settings (⚙).');
+      settingsEl.classList.add('open');
+      return;
+    }
+
+    state.busy = true;
+    addMessage('user', text);
+
+    // Keep only last 32 messages to prevent context overflow
+    if (state.messages.length > 32) {
+      state.messages = state.messages.slice(-32);
+    }
+    state.messages.push({ role: 'user', content: text });
+
+    setStatus('THINKING…', 'thinking');
+
+    try {
+      const reply = await callGroq(state.messages);
+      await handleGroqReply(reply);
+    } catch (err) {
+      addSystem('Error: ' + err.message);
+      setStatus('ERROR', '');
+    } finally {
+      state.busy = false;
+      if (!state.listening) setStatus('READY', '');
+    }
+  }
+
+  async function callGroq(history) {
+    const body = {
+      model: state.model,
+      messages: [
+        { role: 'system', content: state.sysPrompt },
+        ...history
+      ],
+      tools: [callTool],
+      tool_choice: 'auto',
+      temperature: 0.6,
+      max_tokens: 200
+    };
+
+    const res = await fetch(GROQ_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + state.apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(res.status + ' — ' + err.slice(0, 100));
+    }
+    const data = await res.json();
+    return data.choices[0].message;
+  }
+
+  async function handleGroqReply(msg) {
+    // Check if AI wants to use a tool (make a call)
+    if (msg.tool_calls && msg.tool_calls.length > 0) {
+      const call = msg.tool_calls[0];
+      let args = {};
+      try { args = JSON.parse(call.function.arguments); } catch (_) {}
+
+      const contactName = args.contact_name || 'contact';
+
+      // Save tool request and response to history so AI remembers
+      state.messages.push({
+        role: 'assistant',
+        content: null,
+        tool_calls: msg.tool_calls
+      });
+      state.messages.push({
+        role: 'tool',
+        tool_call_id: call.id,
+        content: `Initiating call to ${contactName}.`
+      });
+
+      const spoken = `Calling ${contactName}.`;
+      addMessage('assistant', spoken);
+      speak(spoken);
+
+      // Trigger Android Phone Dialer
+      setTimeout(() => {
+        window.location.href = 'tel:' + encodeURIComponent(contactName);
+      }, 1000);
+      
+      return;
+    }
+
+    // Normal text reply
+    const text = (msg.content || '').trim();
+    if (!text) return;
+
+    state.messages.push({ role: 'assistant', content: text });
+    addMessage('assistant', text);
+    speak(text);
+  }
+
+  // Initial Welcome Message
+  if (!state.apiKey) {
+    addSystem('Welcome. Open ⚙ settings and paste your free Groq API key.');
+  } else {
+    addSystem('Jarvis ready. Hold the mic or type.');
+  }
+  setStatus('READY', '');
+})();
+</script>
+</body>
+</html>

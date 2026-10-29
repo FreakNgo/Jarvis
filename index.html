@@ -1,8 +1,8 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- Added viewport-fit=cover and maximum-scale for full screen app feel -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -23,7 +23,7 @@
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   
   html, body {
-    height: 100dvh; /* Fixes mobile address bar issues */
+    height: 100dvh;
     overflow: hidden;
     background: var(--bg); 
     color: var(--text-main);
@@ -35,11 +35,10 @@
     height: 100%; 
     display: flex; 
     flex-direction: column; 
-    padding-top: env(safe-area-inset-top); /* Handles notches */
+    padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
   }
 
-  /* Header */
   header {
     flex-shrink: 0;
     padding: 16px 20px; 
@@ -71,7 +70,6 @@
   #status.thinking  { background: #e0e7ff; color: #4f46e5; }
   @keyframes pulse { 50% { opacity: 0.6; } }
 
-  /* Chat Area */
   #chat {
     flex: 1; 
     overflow-y: auto; 
@@ -116,7 +114,6 @@
     box-shadow: none;
   }
 
-  /* Composer (Input Area) */
   #composer {
     flex-shrink: 0;
     padding: 12px 16px 20px;
@@ -153,12 +150,12 @@
     flex: 1; 
     display: flex; 
     gap: 10px; 
-    min-width: 0; /* CRITICAL FIX: Allows flex child to shrink */
+    min-width: 0;
   }
   
   #typeInput {
     flex: 1; 
-    min-width: 0; /* CRITICAL FIX: Stops input from pushing button off screen */
+    min-width: 0;
     padding: 14px 18px; 
     border-radius: 24px;
     background: var(--bg); 
@@ -173,7 +170,7 @@
   #typeInput:focus { border-color: var(--primary); background: #fff; }
   
   #sendBtn {
-    flex-shrink: 0; /* Prevents button from squishing */
+    flex-shrink: 0;
     padding: 0 20px; 
     border: none; 
     border-radius: 24px; 
@@ -186,7 +183,6 @@
   }
   #sendBtn:active { background: #2563eb; }
 
-  /* Settings Modal */
   #settingsBtn {
     background: none; 
     border: none; 
@@ -231,6 +227,17 @@
   .field textarea { resize: vertical; min-height: 120px; line-height: 1.5; }
   .field small { display: block; font-size: 12px; color: #94a3b8; margin-top: 8px; line-height: 1.4; }
   
+  #testVoiceBtn {
+    margin-top: 10px;
+    padding: 10px 16px;
+    background: #e2e8f0;
+    color: var(--text-main);
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
   #saveSettings {
     width: 100%; 
     padding: 16px; 
@@ -241,7 +248,7 @@
     color: #fff; 
     font-weight: 700; 
     font-size: 15px;
-    margin-top: 10px;
+    margin-top: 20px;
   }
   
   #closeSettings {
@@ -275,7 +282,7 @@
   <div id="chat"></div>
 
   <div id="composer">
-    <button id="micBtn" title="Hold to talk">
+    <button id="micBtn" title="Tap to talk">
       <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
     </button>
     <div id="typeRow">
@@ -292,28 +299,26 @@
   <div class="field">
     <label>GROQ API KEY</label>
     <input id="apiKey" type="password" placeholder="gsk_...">
-    <small>Get a free key at console.groq.com. Stored locally.</small>
   </div>
 
   <div class="field">
     <label>MODEL</label>
     <select id="model">
-      <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile (Best)</option>
-      <option value="llama-3.1-8b-instant">llama-3.1-8b-instant (Fastest)</option>
-      <option value="qwen/qwen3-32b">qwen3-32b</option>
+      <option value="openai/gpt-oss-120b">openai/gpt-oss-120b (Recommended)</option>
+      <option value="openai/gpt-oss-20b">openai/gpt-oss-20b (Compact)</option>
+      <option value="qwen/qwen3-32b">qwen/qwen3-32b (Reasoning)</option>
     </select>
   </div>
 
   <div class="field">
     <label>SYSTEM PROMPT</label>
     <textarea id="sysPrompt"></textarea>
-    <small>Keeps the AI from writing long paragraphs.</small>
   </div>
 
   <div class="field">
     <label>VOICE</label>
     <select id="voiceSel"></select>
-    <small>Uses your device's built-in voice.</small>
+    <button id="testVoiceBtn">🔊 Test Voice</button>
   </div>
 
   <button id="saveSettings">SAVE SETTINGS</button>
@@ -350,7 +355,7 @@
   const state = {
     messages: [],
     apiKey: localStorage.getItem('jarvis_key') || '',
-    model: localStorage.getItem('jarvis_model') || 'llama-3.3-70b-versatile',
+    model: localStorage.getItem('jarvis_model') || 'openai/gpt-oss-120b',
     sysPrompt: localStorage.getItem('jarvis_prompt') || DEFAULT_PROMPT,
     voice: localStorage.getItem('jarvis_voice') || '',
     listening: false,
@@ -374,6 +379,7 @@
 
   document.getElementById('settingsBtn').onclick = () => settingsEl.classList.add('open');
   document.getElementById('closeSettings').onclick = () => settingsEl.classList.remove('open');
+  
   document.getElementById('saveSettings').onclick = () => {
     state.apiKey = apiKeyEl.value.trim();
     state.model = modelEl.value;
@@ -401,10 +407,12 @@
   }
   function addSystem(text) { addMessage('system', text); }
 
+  // --- TEXT TO SPEECH (TTS) ---
   const synth = window.speechSynthesis;
   let voices = [];
 
   function loadVoices() {
+    if (!synth) return;
     voices = synth.getVoices();
     voiceSel.innerHTML = '<option value="">Default System Voice</option>';
     voices.forEach(v => {
@@ -416,32 +424,49 @@
     });
   }
   
-  if ('speechSynthesis' in window) {
+  if (synth) {
     loadVoices();
     synth.onvoiceschanged = loadVoices;
+    setTimeout(loadVoices, 1000); 
+    setTimeout(loadVoices, 3000);
   }
 
   function speak(text) {
-    if (!('speechSynthesis' in window)) return;
-    synth.cancel();
+    // Silently fail if browser doesn't support it (like local file viewers)
+    if (!synth) return;
+    
+    synth.cancel(); // Stop any currently playing audio
+    
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'en-US';
     u.rate = 1.05;
     u.pitch = 1.0;
-    if (state.voice) {
+    
+    if (state.voice && voices.length > 0) {
       const v = voices.find(x => x.name === state.voice);
       if (v) u.voice = v;
     }
+    
     synth.speak(u);
   }
 
+  // Test Voice button
+  document.getElementById('testVoiceBtn').onclick = () => {
+    if (!synth) {
+      alert("Your current browser/viewer does not support Text-to-Speech.");
+      return;
+    }
+    speak("Hello. I am Jarvis. I am ready to assist you.");
+  };
+
+  // --- SPEECH TO TEXT (STT) ---
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognition = null;
 
   if (SR) {
     recognition = new SR();
     recognition.continuous = false;
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     recognition.lang = 'en-US';
 
     recognition.onstart = () => {
@@ -451,8 +476,15 @@
     };
 
     recognition.onresult = (ev) => {
-      const text = ev.results[0][0].transcript.trim();
-      if (text) handleUserInput(text);
+      let finalTranscript = '';
+      for (let i = ev.resultIndex; i < ev.results.length; ++i) {
+        if (ev.results[i].isFinal) {
+          finalTranscript += ev.results[i][0].transcript;
+        }
+      }
+      if (finalTranscript.trim()) {
+        handleUserInput(finalTranscript.trim());
+      }
     };
 
     recognition.onerror = (ev) => {
@@ -468,20 +500,19 @@
       if (!state.busy) setStatus('READY', '');
     };
   } else {
-    addSystem('Speech recognition not available here. Use typing.');
+    // Only show this once if unsupported
+    setTimeout(() => addSystem('Speech recognition not available here. Use typing.'), 1000);
   }
 
-  micBtn.addEventListener('pointerdown', (e) => {
+  micBtn.addEventListener('click', (e) => {
     e.preventDefault();
-    if (!recognition) { addSystem('Mic unsupported in this browser.'); return; }
+    if (!recognition) return;
     if (state.busy) return;
-    try { recognition.start(); } catch (err) {}
-  });
-
-  micBtn.addEventListener('pointerup', (e) => {
-    e.preventDefault();
-    if (recognition && state.listening) {
-      try { recognition.stop(); } catch (_) {}
+    
+    if (state.listening) {
+      recognition.stop();
+    } else {
+      try { recognition.start(); } catch (err) {} 
     }
   });
 
@@ -595,10 +626,10 @@
   if (!state.apiKey) {
     addSystem('Welcome! Open ⚙ settings and paste your Groq API key.');
   } else {
-    addSystem('Jarvis ready. Hold the mic or type.');
+    addSystem('Jarvis ready. Tap the mic or type.');
   }
   setStatus('READY', '');
 })();
 </script>
 </body>
-</html>
+  </html>

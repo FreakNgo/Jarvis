@@ -100,7 +100,7 @@
     <textarea id="sysPrompt"></textarea>
   </div>
   <div class="field">
-    <label>VOICE (CLOUD MALE)</label>
+    <label>VOICE (CLOUD)</label>
     <select id="voiceSel">
       <option value="austin">Austin (Male)</option>
       <option value="daniel">Daniel (Male)</option>
@@ -141,7 +141,7 @@
     apiKey: localStorage.getItem('jarvis_key') || '',
     model: localStorage.getItem('jarvis_model') || 'openai/gpt-oss-120b',
     sysPrompt: localStorage.getItem('jarvis_prompt') || DEFAULT_PROMPT,
-    voice: localStorage.getItem('jarvis_voice') || 'austin', // Default to a new male voice
+    voice: localStorage.getItem('jarvis_voice') || 'austin',
     listening: false,
     busy: false
   };
@@ -222,10 +222,10 @@
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'canopylabs/orpheus-v1-english', // Updated model ID
-          voice: state.voice, // Will be one of the new voices
+          model: 'canopylabs/orpheus-v1-english',
+          voice: state.voice,
           input: text,
-          response_format: 'mp3'
+          response_format: 'wav' // The fix: wav is the only supported format
         })
       });
       

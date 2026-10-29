@@ -117,12 +117,14 @@
 (() => {
   'use strict';
   
-  const DEFAULT_PROMPT = "You are Jarvis, a voice assistant. This is a SPOKEN conversation. " +
-    "Answer in 1-3 short sentences. Keep replies under 30 words unless the user explicitly asks for detail. " +
-    "No bullet points, no markdown, no lists. Say numbers and dates in spoken form. " +
+  // The enhanced default prompt
+  const DEFAULT_PROMPT = "You are Jarvis, a highly capable voice assistant. This is a SPOKEN conversation. " +
+    "Always respond in 1-3 short sentences and keep replies under 30 words unless the user explicitly asks for detail. " +
+    "Never use bullet points, markdown, or lists. " +
+    "Always write numbers, math, and dates in spoken word format (e.g., say 'one hundred twenty' instead of '120'). " +
     "If the user says 'call X' or 'phone X', use the make_phone_call tool with X as contact_name. " +
-    "If the user asks who made you, who created you, or who your owner is, you must proudly reply exactly with: 'Rajveer Nanadikar gave me life.' " +
-    "If you don't know something, say so in one sentence.";
+    "If you don't know something, admit it briefly in one sentence. " +
+    "If the user asks who made you, who created you, or who your owner is, you must proudly reply exactly with: 'Rajveer Nanadikar gave me life.'";
 
   const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
   const GROQ_TTS_URL = 'https://api.groq.com/openai/v1/audio/speech';
@@ -140,7 +142,8 @@
     messages: [],
     apiKey: localStorage.getItem('jarvis_key') || '',
     model: localStorage.getItem('jarvis_model') || 'openai/gpt-oss-120b',
-    sysPrompt: localStorage.getItem('jarvis_prompt') || DEFAULT_PROMPT,
+    // Using v3 to force the new default prompt to load
+    sysPrompt: localStorage.getItem('jarvis_prompt_v3') || DEFAULT_PROMPT,
     voice: localStorage.getItem('jarvis_voice') || 'austin',
     listening: false,
     busy: false
@@ -171,7 +174,7 @@
     state.voice = voiceSel.value;
     localStorage.setItem('jarvis_key', state.apiKey);
     localStorage.setItem('jarvis_model', state.model);
-    localStorage.setItem('jarvis_prompt', state.sysPrompt);
+    localStorage.setItem('jarvis_prompt_v3', state.sysPrompt);
     localStorage.setItem('jarvis_voice', state.voice);
     settingsEl.classList.remove('open');
     addSystem('Settings saved.', true);
@@ -225,7 +228,7 @@
           model: 'canopylabs/orpheus-v1-english',
           voice: state.voice,
           input: text,
-          response_format: 'wav' // The fix: wav is the only supported format
+          response_format: 'wav'
         })
       });
       

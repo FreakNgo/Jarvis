@@ -84,30 +84,43 @@
 <div id="settings">
   <button id="closeSettings">✕</button>
   <h2>Settings</h2>
+  
   <div class="field">
-    <label>GOOGLE AI STUDIO API KEY</label>
-    <input id="geminiKey" type="password" placeholder="Paste your API key here">
-    <small>Get a free key at aistudio.google.com. Handles both brain and voice.</small>
+    <label>SAMBANOVA API KEY (Brain)</label>
+    <input id="sambaKey" type="password" placeholder="Paste your SambaNova key here">
+    <small>Get a free key at cloud.sambanova.ai. Handles the reasoning.</small>
   </div>
+
+  <div class="field">
+    <label>GROQ API KEY (Voice)</label>
+    <input id="groqKey" type="password" placeholder="gsk_...">
+    <small>Get a free key at console.groq.com. Handles the text-to-speech.</small>
+  </div>
+
   <div class="field">
     <label>PHONE CONTACTS</label>
     <textarea id="contacts" placeholder="chomda:+917385533666&#10;mom:+919876543210"></textarea>
     <small>Format: name:number (one per line).</small>
   </div>
+  
   <div class="field">
     <label>SYSTEM PROMPT</label>
     <textarea id="sysPrompt"></textarea>
   </div>
+  
   <div class="field">
     <label>VOICE</label>
     <select id="voiceSel">
-      <option value="Kore">Kore (Natural Female)</option>
-      <option value="Puck">Puck (Natural Male)</option>
-      <option value="Zephyr">Zephyr (Bright Female)</option>
-      <option value="Charon">Charon (Deep Male)</option>
+      <option value="daniel">Daniel (Human Male)</option>
+      <option value="diana">Diana (Human Female)</option>
+      <option value="austin">Austin (Male)</option>
+      <option value="troy">Troy (Male)</option>
+      <option value="autumn">Autumn (Female)</option>
+      <option value="hannah">Hannah (Female)</option>
     </select>
     <button id="testVoiceBtn">🔊 Test Voice</button>
   </div>
+  
   <button id="saveSettings">SAVE SETTINGS</button>
 </div>
 <script>
@@ -128,9 +141,8 @@
     "If you don't know something, admit it briefly in one sentence. " +
     "If the user asks who made you, who created you, or who your owner is, you must proudly reply exactly with: 'Rajveer Nanadikar gave me life.'";
 
-  // Current active endpoints and model IDs
-  const GEMINI_CHAT_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-  const GEMINI_TTS_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-tts:generateContent';
+  const SAMBANOVA_URL = 'https://api.sambanova.ai/v1/chat/completions';
+  const GROQ_TTS_URL = 'https://api.groq.com/openai/v1/audio/speech';
 
   const tools = [
     {
@@ -168,10 +180,11 @@
 
   const state = {
     messages: [],
-    geminiKey: localStorage.getItem('jarvis_gemini_key') || '',
-    voice: localStorage.getItem('jarvis_voice') || 'Kore',
+    sambaKey: localStorage.getItem('jarvis_samba_key') || '',
+    groqKey: localStorage.getItem('jarvis_groq_key') || '',
+    voice: localStorage.getItem('jarvis_voice') || 'daniel',
     contacts: localStorage.getItem('jarvis_contacts') || "chomda:+917385533666",
-    sysPrompt: localStorage.getItem('jarvis_prompt_v12') || DEFAULT_PROMPT,
+    sysPrompt: localStorage.getItem('jarvis_prompt_v14') || DEFAULT_PROMPT,
     listening: false,
     busy: false
   };
@@ -183,12 +196,14 @@
   const sendBtn = document.getElementById('sendBtn');
   const settingsEl = document.getElementById('settings');
   
-  const geminiKeyEl = document.getElementById('geminiKey');
+  const sambaKeyEl = document.getElementById('sambaKey');
+  const groqKeyEl = document.getElementById('groqKey');
   const promptEl = document.getElementById('sysPrompt');
   const voiceSel = document.getElementById('voiceSel');
   const contactsEl = document.getElementById('contacts');
 
-  geminiKeyEl.value = state.geminiKey;
+  sambaKeyEl.value = state.sambaKey;
+  groqKeyEl.value = state.groqKey;
   promptEl.value = state.sysPrompt;
   voiceSel.value = state.voice;
   contactsEl.value = state.contacts;
@@ -197,13 +212,15 @@
   document.getElementById('closeSettings').onclick = () => settingsEl.classList.remove('open');
   
   document.getElementById('saveSettings').onclick = () => {
-    state.geminiKey = geminiKeyEl.value.trim();
+    state.sambaKey = sambaKeyEl.value.trim();
+    state.groqKey = groqKeyEl.value.trim();
     state.sysPrompt = promptEl.value.trim() || DEFAULT_PROMPT;
     state.voice = voiceSel.value;
     state.contacts = contactsEl.value.trim();
     
-    localStorage.setItem('jarvis_gemini_key', state.geminiKey);
-    localStorage.setItem('jarvis_prompt_v12', state.sysPrompt);
+    localStorage.setItem('jarvis_samba_key', state.sambaKey);
+    localStorage.setItem('jarvis_groq_key', state.groqKey);
+    localStorage.setItem('jarvis_prompt_v14', state.sysPrompt);
     localStorage.setItem('jarvis_voice', state.voice);
     localStorage.setItem('jarvis_contacts', state.contacts);
     
@@ -244,64 +261,33 @@
   
   function unlockAudio() {
     if (audioUnlocked) return;
+    // Play a silent buffer to unlock audio context on mobile
     audioPlayer.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
-    audioPlayer.play().then(() => { audioPlayer.pause(); audioUnlocked = true; }).catch(e => console.log("Audio unlock failed:", e));
+    audioPlayer.play().then(() => { 
+      audioPlayer.pause(); 
+      audioUnlocked = true; 
+    }).catch(e => console.log("Audio unlock failed:", e));
   }
   
   document.addEventListener('touchstart', unlockAudio, { once: true });
   document.addEventListener('click', unlockAudio, { once: true });
 
-  function pcmToWav(base64PCM) {
-    try {
-      const binary = atob(base64PCM);
-      const len = binary.length;
-      const buffer = new ArrayBuffer(44 + len);
-      const view = new DataView(buffer);
-      
-      const writeString = (view, offset, string) => {
-        for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
-      };
-      
-      writeString(view, 0, 'RIFF');
-      view.setUint32(4, 36 + len, true);
-      writeString(view, 8, 'WAVE');
-      writeString(view, 12, 'fmt ');
-      view.setUint32(16, 16, true);
-      view.setUint16(20, 1, true); 
-      view.setUint16(22, 1, true); 
-      view.setUint32(24, 24000, true); 
-      view.setUint32(28, 24000 * 2, true);
-      view.setUint16(32, 2, true);
-      view.setUint16(34, 16, true);
-      writeString(view, 36, 'data');
-      view.setUint32(40, len, true);
-      
-      for (let i = 0; i < len; i++) view.setUint8(44 + i, binary.charCodeAt(i));
-      return new Blob([buffer], { type: 'audio/wav' });
-    } catch(e) {
-      throw new Error("Failed to decode audio data.");
-    }
-  }
-
   async function speak(text) {
-    if (!state.geminiKey) return;
+    if (!state.groqKey) return;
     try {
       setStatus('SPEAKING…', 'speaking');
       
-      const res = await fetch(GEMINI_TTS_URL, {
+      const res = await fetch(GROQ_TTS_URL, {
         method: 'POST',
         headers: { 
-          'x-goog-api-key': state.geminiKey,
+          'Authorization': 'Bearer ' + state.groqKey,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: text }] }],
-          generationConfig: {
-            responseModalities: ["AUDIO"],
-            speechConfig: {
-              voiceConfig: { prebuiltVoiceConfig: { voiceName: state.voice } }
-            }
-          }
+          model: 'canopylabs/orpheus-v1-english',
+          voice: state.voice,
+          input: text,
+          response_format: 'wav'
         })
       });
 
@@ -310,23 +296,8 @@
         throw new Error(errText.slice(0, 100));
       }
 
-      const data = await res.json();
-      
-      if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts[0].inlineData) {
-        throw new Error("No audio data returned from API.");
-      }
-
-      const part = data.candidates[0].content.parts[0];
-      const base64Audio = part.inlineData.data;
-      const mimeType = part.inlineData.mimeType || '';
-      
-      let audioUrl;
-      if (mimeType.includes('wav') || mimeType.includes('mp3')) {
-        audioUrl = `data:${mimeType};base64,${base64Audio}`;
-      } else {
-        const blob = pcmToWav(base64Audio);
-        audioUrl = URL.createObjectURL(blob);
-      }
+      const blob = await res.blob();
+      const audioUrl = URL.createObjectURL(blob);
       
       audioPlayer.src = audioUrl;
       await audioPlayer.play();
@@ -364,7 +335,7 @@
       state.listening = false; 
       micBtn.classList.remove('listening');
       if (ev.error === 'not-allowed') {
-        addSystem('Microphone access denied. Please allow mic permissions in your browser/app settings.');
+        addSystem('Microphone access denied. Please allow mic permissions in your settings.');
       } else {
         addSystem('Mic error: ' + ev.error);
       }
@@ -392,7 +363,7 @@
 
   async function handleUserInput(text) {
     if (state.busy) return;
-    if (!state.geminiKey) { addSystem('Add your Google AI Studio key in settings (⚙).'); settingsEl.classList.add('open'); return; }
+    if (!state.sambaKey) { addSystem('Add your SambaNova API key in settings (⚙).'); settingsEl.classList.add('open'); return; }
     
     state.busy = true;
     addMessage('user', text);
@@ -401,14 +372,14 @@
     setStatus('THINKING…', 'thinking');
 
     try {
-      const res = await fetch(GEMINI_CHAT_URL, {
+      const res = await fetch(SAMBANOVA_URL, {
         method: 'POST',
         headers: { 
-          'Authorization': 'Bearer ' + state.geminiKey, 
+          'Authorization': 'Bearer ' + state.sambaKey, 
           'Content-Type': 'application/json' 
         },
         body: JSON.stringify({
-          model: 'gemini-3.8-flash', // Updated to latest stable model
+          model: 'Meta-Llama-3.3-70B-Instruct',
           messages: [{ role: 'system', content: state.sysPrompt }, ...state.messages],
           tools: tools,
           tool_choice: 'auto',
@@ -428,7 +399,7 @@
         throw new Error("Invalid response format from LLM.");
       }
 
-      await handleGeminiReply(data.choices[0].message);
+      await handleLLMReply(data.choices[0].message);
     } catch (err) {
       addSystem('LLM Error: ' + err.message);
       setStatus('ERROR', 'error');
@@ -437,7 +408,7 @@
     }
   }
 
-  async function handleGeminiReply(msg) {
+  async function handleLLMReply(msg) {
     if (msg.tool_calls && msg.tool_calls.length > 0) {
       const call = msg.tool_calls[0];
       let args = {};
@@ -486,7 +457,7 @@
     speak(text);
   }
 
-  if (!state.geminiKey) addSystem('Welcome! Open ⚙ settings and paste your Google AI Studio key.', true);
+  if (!state.sambaKey || !state.groqKey) addSystem('Welcome! Open ⚙ settings and paste both API keys.', true);
   else addSystem('Jarvis ready. Tap the mic or type.', true);
   setStatus('READY', '');
 })();

@@ -86,7 +86,8 @@
   <h2>Settings</h2>
   <div class="field">
     <label>GOOGLE AI STUDIO API KEY</label>
-    <input id="geminiKey" type="password" placeholder="AIzaSy...">
+    <!-- Changed placeholder so it doesn't confuse you with AIzaSy vs AQ. -->
+    <input id="geminiKey" type="password" placeholder="Paste your API key here">
     <small>Get a free key at aistudio.google.com. Handles both brain and voice.</small>
   </div>
   <div class="field">
@@ -114,7 +115,6 @@
 (() => {
   'use strict';
 
-  // Catch any asynchronous errors and print them to the chat
   window.addEventListener('unhandledrejection', function(event) {
     addSystem('Async Error: ' + (event.reason.message || event.reason));
     setStatus('ERROR', 'error');
@@ -130,7 +130,8 @@
     "If the user asks who made you, who created you, or who your owner is, you must proudly reply exactly with: 'Rajveer Nanadikar gave me life.'";
 
   const GEMINI_CHAT_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-  const GEMINI_TTS_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent';
+  // Using the stable, widely supported models
+  const GEMINI_TTS_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
   const tools = [
     {
@@ -171,7 +172,7 @@
     geminiKey: localStorage.getItem('jarvis_gemini_key') || '',
     voice: localStorage.getItem('jarvis_voice') || 'Kore',
     contacts: localStorage.getItem('jarvis_contacts') || "chomda:+917385533666",
-    sysPrompt: localStorage.getItem('jarvis_prompt_v9') || DEFAULT_PROMPT,
+    sysPrompt: localStorage.getItem('jarvis_prompt_v10') || DEFAULT_PROMPT,
     listening: false,
     busy: false
   };
@@ -203,7 +204,7 @@
     state.contacts = contactsEl.value.trim();
     
     localStorage.setItem('jarvis_gemini_key', state.geminiKey);
-    localStorage.setItem('jarvis_prompt_v9', state.sysPrompt);
+    localStorage.setItem('jarvis_prompt_v10', state.sysPrompt);
     localStorage.setItem('jarvis_voice', state.voice);
     localStorage.setItem('jarvis_contacts', state.contacts);
     
@@ -236,7 +237,7 @@
         if (parts[0].trim().toLowerCase() === name.toLowerCase()) return parts.slice(1).join(':').trim();
       }
     }
-    return name; // Fallback to name if not found
+    return name; 
   }
 
   const audioPlayer = new Audio();
@@ -251,7 +252,6 @@
   document.addEventListener('touchstart', unlockAudio, { once: true });
   document.addEventListener('click', unlockAudio, { once: true });
 
-  // WAV Header Injector for Gemini PCM audio
   function pcmToWav(base64PCM) {
     try {
       const binary = atob(base64PCM);
@@ -268,9 +268,9 @@
       writeString(view, 8, 'WAVE');
       writeString(view, 12, 'fmt ');
       view.setUint32(16, 16, true);
-      view.setUint16(20, 1, true); // PCM
-      view.setUint16(22, 1, true); // Mono
-      view.setUint32(24, 24000, true); // Sample rate
+      view.setUint16(20, 1, true); 
+      view.setUint16(22, 1, true); 
+      view.setUint32(24, 24000, true); 
       view.setUint32(28, 24000 * 2, true);
       view.setUint16(32, 2, true);
       view.setUint16(34, 16, true);
@@ -409,7 +409,7 @@
           'Content-Type': 'application/json' 
         },
         body: JSON.stringify({
-          model: 'gemini-2.5-flash', 
+          model: 'gemini-1.5-flash', // Updated to universally supported chat model
           messages: [{ role: 'system', content: state.sysPrompt }, ...state.messages],
           tools: tools,
           tool_choice: 'auto',

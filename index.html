@@ -141,7 +141,10 @@
     "If you don't know something, admit it briefly in one sentence. " +
     "If the user asks who made you, who created you, or who your owner is, you must proudly reply exactly with: 'Rajveer Nanadikar gave me life.'";
 
-  const SAMBANOVA_URL = 'https://api.sambanova.ai/v1/chat/completions';
+  // CHANGED: Pointing to your new Vercel Serverless Proxy
+  const SAMBANOVA_URL = '/api/samba';
+  
+  // Groq TTS Endpoint remains the same
   const GROQ_TTS_URL = 'https://api.groq.com/openai/v1/audio/speech';
 
   const tools = [
@@ -261,7 +264,6 @@
   
   function unlockAudio() {
     if (audioUnlocked) return;
-    // Play a silent buffer to unlock audio context on mobile
     audioPlayer.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
     audioPlayer.play().then(() => { 
       audioPlayer.pause(); 
@@ -372,6 +374,7 @@
     setStatus('THINKING…', 'thinking');
 
     try {
+      // This now hits your Vercel serverless function
       const res = await fetch(SAMBANOVA_URL, {
         method: 'POST',
         headers: { 

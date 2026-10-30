@@ -128,9 +128,9 @@
     "If you don't know something, admit it briefly in one sentence. " +
     "If the user asks who made you, who created you, or who your owner is, you must proudly reply exactly with: 'Rajveer Nanadikar gave me life.'";
 
-  // Using the active stable OpenAI-compatible endpoint and current models
+  // Current active endpoints and model IDs
   const GEMINI_CHAT_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-  const GEMINI_TTS_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts:generateContent';
+  const GEMINI_TTS_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-tts:generateContent';
 
   const tools = [
     {
@@ -171,7 +171,7 @@
     geminiKey: localStorage.getItem('jarvis_gemini_key') || '',
     voice: localStorage.getItem('jarvis_voice') || 'Kore',
     contacts: localStorage.getItem('jarvis_contacts') || "chomda:+917385533666",
-    sysPrompt: localStorage.getItem('jarvis_prompt_v11') || DEFAULT_PROMPT,
+    sysPrompt: localStorage.getItem('jarvis_prompt_v12') || DEFAULT_PROMPT,
     listening: false,
     busy: false
   };
@@ -203,7 +203,7 @@
     state.contacts = contactsEl.value.trim();
     
     localStorage.setItem('jarvis_gemini_key', state.geminiKey);
-    localStorage.setItem('jarvis_prompt_v11', state.sysPrompt);
+    localStorage.setItem('jarvis_prompt_v12', state.sysPrompt);
     localStorage.setItem('jarvis_voice', state.voice);
     localStorage.setItem('jarvis_contacts', state.contacts);
     
@@ -408,7 +408,7 @@
           'Content-Type': 'application/json' 
         },
         body: JSON.stringify({
-          model: 'gemini-2.5-flash', // Current stable OpenAI-compatible chat model
+          model: 'gemini-3.8-flash', // Updated to latest stable model
           messages: [{ role: 'system', content: state.sysPrompt }, ...state.messages],
           tools: tools,
           tool_choice: 'auto',

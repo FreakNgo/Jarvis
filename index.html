@@ -86,7 +86,6 @@
   <h2>Settings</h2>
   <div class="field">
     <label>GOOGLE AI STUDIO API KEY</label>
-    <!-- Changed placeholder so it doesn't confuse you with AIzaSy vs AQ. -->
     <input id="geminiKey" type="password" placeholder="Paste your API key here">
     <small>Get a free key at aistudio.google.com. Handles both brain and voice.</small>
   </div>
@@ -129,9 +128,9 @@
     "If you don't know something, admit it briefly in one sentence. " +
     "If the user asks who made you, who created you, or who your owner is, you must proudly reply exactly with: 'Rajveer Nanadikar gave me life.'";
 
+  // Using the active stable OpenAI-compatible endpoint and current models
   const GEMINI_CHAT_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-  // Using the stable, widely supported models
-  const GEMINI_TTS_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+  const GEMINI_TTS_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts:generateContent';
 
   const tools = [
     {
@@ -172,7 +171,7 @@
     geminiKey: localStorage.getItem('jarvis_gemini_key') || '',
     voice: localStorage.getItem('jarvis_voice') || 'Kore',
     contacts: localStorage.getItem('jarvis_contacts') || "chomda:+917385533666",
-    sysPrompt: localStorage.getItem('jarvis_prompt_v10') || DEFAULT_PROMPT,
+    sysPrompt: localStorage.getItem('jarvis_prompt_v11') || DEFAULT_PROMPT,
     listening: false,
     busy: false
   };
@@ -204,7 +203,7 @@
     state.contacts = contactsEl.value.trim();
     
     localStorage.setItem('jarvis_gemini_key', state.geminiKey);
-    localStorage.setItem('jarvis_prompt_v10', state.sysPrompt);
+    localStorage.setItem('jarvis_prompt_v11', state.sysPrompt);
     localStorage.setItem('jarvis_voice', state.voice);
     localStorage.setItem('jarvis_contacts', state.contacts);
     
@@ -409,7 +408,7 @@
           'Content-Type': 'application/json' 
         },
         body: JSON.stringify({
-          model: 'gemini-1.5-flash', // Updated to universally supported chat model
+          model: 'gemini-2.5-flash', // Current stable OpenAI-compatible chat model
           messages: [{ role: 'system', content: state.sysPrompt }, ...state.messages],
           tools: tools,
           tool_choice: 'auto',

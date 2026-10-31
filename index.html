@@ -96,6 +96,16 @@ dialog a{color:color-mix(in srgb,var(--c) 60%,#000)}
 .row{display:flex;gap:8px;justify-content:space-between;margin-top:20px}
 #toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%) translateY(10px);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:.25s;max-width:90vw;box-shadow:var(--shadow);z-index:20}
 #toast.show{opacity:1;transform:translateX(-50%)}
+.msg .callbtn{display:inline-block;padding:9px 15px;border-radius:12px;background:var(--c);color:var(--onc);font-weight:600;text-decoration:none}
+.hint{font-size:12px;color:var(--mute);margin-top:8px}
+.crow{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel2);margin-bottom:6px;font-size:14px}
+.crow b{flex:1;font-weight:600;overflow-wrap:anywhere}
+.crow span{color:var(--mute);font-size:13px}
+.crow a{font-size:13px;font-weight:600}
+.crow button{width:24px;height:24px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--text);cursor:pointer;line-height:1;padding:0}
+.cadd{display:grid;grid-template-columns:1fr 1fr auto;gap:6px}
+.cadd .btn{height:auto}
+@media (max-width:520px){.cadd{grid-template-columns:1fr 1fr}.cadd .btn{grid-column:1/-1;height:40px}}
 @media (max-width:520px){.msg{max-width:92%}.stage{padding-top:8px}form.bar{flex-wrap:wrap}form.bar .btn{order:1;flex:1 0 auto}form.bar #txt{order:2;flex:1 1 60%}form.bar .btn.pri{order:3;flex:0 0 48px}}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}}
 </style>
@@ -166,6 +176,10 @@ dialog a{color:color-mix(in srgb,var(--c) 60%,#000)}
   <select id="voice"></select>
   <label for="rate">Speaking speed</label>
   <input type="range" id="rate" min=".7" max="1.5" step=".05">
+  <label>Call dictionary</label>
+  <div id="cl"></div>
+  <div class="cadd"><input type="text" id="cn" placeholder="Name or aliases: Mom, Aai"><input type="text" id="cp" placeholder="+91 98765 43210" inputmode="tel"><button class="btn" type="button" id="ca">Add</button></div>
+  <div class="hint">Say "call Mom" or "dial 9876543210". Calls open your phone or computer's calling app.</div>
   <label class="chk"><input type="checkbox" id="web"> Live web search for news, scores, prices, weather</label>
   <label class="chk"><input type="checkbox" id="barge"> Interrupt Jarvis by talking (use headphones if it cuts itself off)</label>
   <button class="btn" type="button" id="wipe" style="margin-top:16px;width:100%">Clear memory and history</button>
@@ -185,7 +199,7 @@ const PERSONAS = {
   nova:{n:'N.O.V.A.',c:'#4dff9a',c2:'#2fb7ff',v:/Google US English|Aria|Zira|Jenny|Female/i,p:'an energetic, curious AI companion from the near future: enthusiastic, concise and playful.'}
 };
 const TZ = 'Asia/Kolkata';
-const D = {theme:'light',city:'Kolhapur',key:'',model:'llama-3.3-70b-versatile',voice:'',rate:1.05,lang:'en-IN',name:'sir',persona:'jarvis',web:true,barge:true,mem:[],notes:[],hist:[]};
+const D = {theme:'light',city:'Kolhapur',contacts:[],key:'',model:'llama-3.3-70b-versatile',voice:'',rate:1.05,lang:'en-IN',name:'sir',persona:'jarvis',web:true,barge:true,mem:[],notes:[],hist:[]};
 const S = Object.assign({}, D, {state:'idle',live:false,abort:null});
 try { Object.assign(S, JSON.parse(localStorage.getItem('jarvis') || '{}')); } catch {}
 S.city = S.city || 'Kolhapur';
@@ -346,6 +360,30 @@ function go(url){
   const d = addMsg('ai', 'Your browser blocked the popup. '), a = document.createElement('a');
   a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Open ' + url.replace(/^https?:\/\//,'').slice(0,40); d.append(a);
 }
+function dial(name, num){
+  setTimeout(() => {
+    const d = addMsg('ai', ''), a = document.createElement('a');
+    a.href = 'tel:' + num; a.className = 'callbtn'; a.textContent = 'Call ' + name + (name === num ? '' : ' · ' + num); d.append(a);
+    setTimeout(() => a.click(), 1400);
+  }, 0);
+}
+function findContact(t){
+  const k = t.toLowerCase().replace(/^(my|to|the)\s+/, '').replace(/[.,!?]/g, '').trim();
+  const al = c => c.n.toLowerCase().split(/[,\/]/).map(s => s.trim()).filter(Boolean);
+  return S.contacts.find(c => al(c).includes(k)) || S.contacts.find(c => al(c).some(a => a.startsWith(k) || k.startsWith(a))) || S.contacts.find(c => al(c).some(a => a.includes(k)));
+}
+function renderContacts(){
+  const l = $('#cl'); l.innerHTML = '';
+  if (!S.contacts.length) { l.innerHTML = '<div class="hint">No contacts yet. Add one below.</div>'; return; }
+  S.contacts.forEach((c, i) => {
+    const r = document.createElement('div'), n = document.createElement('b'), p = document.createElement('span'), a = document.createElement('a'), x = document.createElement('button');
+    r.className = 'crow'; n.textContent = c.n; p.textContent = c.p;
+    a.href = 'tel:' + c.p.replace(/[^\d+]/g, ''); a.textContent = 'Call'; a.setAttribute('aria-label', 'Call ' + c.n);
+    x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Delete ' + c.n);
+    x.onclick = () => { S.contacts.splice(i, 1); save(); renderContacts(); };
+    r.append(n, p, a, x); l.append(r);
+  });
+}
 function act(t){
   const s = t.trim().replace(/[.!?]+$/,''); let m;
   if (/^what('?s| is)? ?(the )?(current )?time( is it)?( now)?$|^what time is it/i.test(s)) return 'It is ' + new Date().toLocaleTimeString('en-IN', {hour:'numeric',minute:'2-digit',timeZone:TZ}) + '.';
@@ -362,6 +400,13 @@ function act(t){
   if ((m = s.match(/^remember (?:that )?(.+)/i))) { S.mem.push(m[1]); save(); return 'Understood. I will remember that.'; }
   if (/^what do you (?:remember|know) about me/i.test(s)) return S.mem.length ? 'Here is what I remember. ' + S.mem.join('. ') + '.' : 'I do not know anything about you yet. Tell me to remember something.';
   if (/^(?:forget everything|clear (?:your )?memory|forget (?:it )?all)/i.test(s)) { S.mem = []; S.notes = []; S.hist = []; save(); $('#log').innerHTML = EMPTY; return 'Memory cleared.'; }
+  if ((m = s.match(/^(?:please )?(?:call|dial|phone|ring|make a call to|give a call to)\s+(.+)$/i))) {
+    const t2 = m[1].trim(), digits = t2.replace(/[\s\-().]/g, '');
+    if (/^\+?\d{3,15}$/.test(digits)) { dial(digits, digits); return 'Calling ' + t2 + '.'; }
+    const c = findContact(t2);
+    if (c) { const nm = c.n.split(/[,\/]/)[0].trim(); dial(nm, c.p.replace(/[^\d+]/g, '')); return 'Calling ' + nm + '.'; }
+    return 'I do not have ' + t2 + ' in your call dictionary. Add them in settings, or tell me the number.';
+  }
   if ((m = s.match(/^play (.+?)(?: on (?:youtube|you tube))?$/i))) { go('https://www.youtube.com/results?search_query=' + encodeURIComponent(m[1])); return 'Playing ' + m[1] + ' on YouTube.'; }
   if ((m = s.match(/^(?:open|launch|go to)\s+(?:the\s+)?(.+?)(?:\s+(?:website|site|app))?$/i))) {
     const k = m[1].toLowerCase().trim(), d = SITES[k] || (/^[\w-]+(\.[\w-]+)+$/.test(k) ? k : null);
@@ -566,6 +611,12 @@ $('#model').onchange= e => { S.model = e.target.value; save(); };
 $('#lang').onchange = e => { S.lang = e.target.value; save(); };
 $('#name').oninput  = e => { S.name = e.target.value.trim(); save(); };
 $('#city').oninput  = e => { S.city = e.target.value.trim(); save(); };
+$('#ca').onclick = () => {
+  const n = $('#cn').value.trim(), p = $('#cp').value.trim();
+  if (!n || p.replace(/\D/g, '').length < 3) return toast('Enter a name and a valid number.');
+  S.contacts.push({n, p}); save(); $('#cn').value = $('#cp').value = ''; renderContacts();
+};
+renderContacts();
 $('#voice').onchange= e => { S.voice = e.target.value; save(); };
 $('#rate').oninput  = e => { S.rate = +e.target.value; save(); };
 $('#web').onchange  = e => { S.web = e.target.checked; save(); };

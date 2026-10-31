@@ -167,7 +167,7 @@ dialog a{color:color-mix(in srgb,var(--c) 60%,#000)}
   <label for="name">Address me as</label>
   <input type="text" id="name" placeholder="sir">
   <label for="maker">Creator name (what Jarvis says when asked who made it)</label>
-  <input type="text" id="maker" placeholder="Rajveer Nandikar">
+  <input type="text" id="maker" placeholder="Rajveer Nanadikar">
   <label for="city">Home city (used for weather)</label>
   <input type="text" id="city" placeholder="Kolhapur">
   <label for="lang">Speech recognition language</label>
@@ -206,10 +206,10 @@ const PERSONAS = {
   nova:{n:'N.O.V.A.',c:'#4dff9a',c2:'#2fb7ff',v:/Google US English|Aria|Zira|Jenny|Female/i,p:'an energetic, curious AI companion from the near future: enthusiastic, concise and playful.'}
 };
 const TZ = 'Asia/Kolkata';
-const D = {theme:'light',city:'Kolhapur',maker:'Rajveer Nandikar',contacts:[],key:'',model:'llama-3.3-70b-versatile',voice:'',rate:1.05,lang:'en-IN',name:'sir',persona:'jarvis',web:true,barge:true,mem:[],notes:[],hist:[]};
+const D = {theme:'light',city:'Kolhapur',maker:'Rajveer Nanadikar',contacts:[],key:'',model:'llama-3.3-70b-versatile',voice:'',rate:1.05,lang:'en-IN',name:'sir',persona:'jarvis',web:true,barge:true,mem:[],notes:[],hist:[]};
 const S = Object.assign({}, D, {state:'idle',live:false,abort:null});
 try { Object.assign(S, JSON.parse(localStorage.getItem('jarvis') || '{}')); } catch {}
-S.city = S.city || 'Kolhapur'; S.maker = S.maker || 'Rajveer Nandikar';
+S.city = S.city || 'Kolhapur'; S.maker = (!S.maker || S.maker === 'Rajveer Nandikar') ? 'Rajveer Nanadikar' : S.maker;
 const save = () => { try { const o = {}; Object.keys(D).forEach(k => o[k] = S[k]); o.hist = S.hist.slice(-30); localStorage.setItem('jarvis', JSON.stringify(o)); } catch {} };
 
 const VISION = 'meta-llama/llama-4-scout-17b-16e-instruct', COMP = 'groq/compound-mini', API = 'https://api.groq.com/openai/v1/';
@@ -699,7 +699,7 @@ $('#model').onchange= e => { S.model = e.target.value; save(); };
 $('#lang').onchange = e => { S.lang = e.target.value; save(); };
 $('#name').oninput  = e => { S.name = e.target.value.trim(); save(); };
 $('#city').oninput  = e => { S.city = e.target.value.trim(); save(); };
-$('#maker').oninput = e => { S.maker = e.target.value.trim() || 'Rajveer Nandikar'; save(); };
+$('#maker').oninput = e => { S.maker = e.target.value.trim() || 'Rajveer Nanadikar'; save(); };
 $('#ca').onclick = () => {
   const n = $('#cn').value.trim(), p = $('#cp').value.trim();
   if (!n || p.replace(/\D/g, '').length < 3) return toast('Enter a name and a valid number.');

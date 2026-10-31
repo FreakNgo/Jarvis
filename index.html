@@ -151,6 +151,8 @@ dialog a{color:color-mix(in srgb,var(--c) 60%,#000)}
   <select id="model"><option value="">Add your API key to load models</option></select>
   <label for="name">Address me as</label>
   <input type="text" id="name" placeholder="sir">
+  <label for="city">Home city (used for weather)</label>
+  <input type="text" id="city" placeholder="e.g. Pune">
   <label for="lang">Speech recognition language</label>
   <select id="lang">
     <option value="">Auto-detect</option>
@@ -182,7 +184,7 @@ const PERSONAS = {
   alfred:{n:'A.L.F.R.E.D.',c:'#f5c35c',c2:'#c0803a',v:/Daniel|UK English Male|Rishi|Ryan/i,p:'a dignified old-world butler: formal, wise, gentle and quietly sarcastic when warranted.'},
   nova:{n:'N.O.V.A.',c:'#4dff9a',c2:'#2fb7ff',v:/Google US English|Aria|Zira|Jenny|Female/i,p:'an energetic, curious AI companion from the near future: enthusiastic, concise and playful.'}
 };
-const D = {theme:'light',key:'',model:'llama-3.3-70b-versatile',voice:'',rate:1.05,lang:'en-IN',name:'sir',persona:'jarvis',web:true,barge:true,mem:[],notes:[],hist:[]};
+const D = {theme:'light',city:'',key:'',model:'llama-3.3-70b-versatile',voice:'',rate:1.05,lang:'en-IN',name:'sir',persona:'jarvis',web:true,barge:true,mem:[],notes:[],hist:[]};
 const S = Object.assign({}, D, {state:'idle',live:false,abort:null});
 try { Object.assign(S, JSON.parse(localStorage.getItem('jarvis') || '{}')); } catch {}
 const save = () => { try { const o = {}; Object.keys(D).forEach(k => o[k] = S[k]); o.hist = S.hist.slice(-30); localStorage.setItem('jarvis', JSON.stringify(o)); } catch {} };
@@ -371,10 +373,33 @@ function local(t, r){
   streamDone = true; q = 0; setState('thinking'); speak(r); if (q <= 0) finish();
 }
 
+/* ---------- Live weather (Open-Meteo, no key needed) ---------- */
+const WC = {0:'clear sky',1:'mainly clear',2:'partly cloudy',3:'overcast',45:'fog',48:'fog',51:'light drizzle',53:'drizzle',55:'heavy drizzle',61:'light rain',63:'rain',65:'heavy rain',71:'light snow',73:'snow',75:'heavy snow',80:'rain showers',81:'rain showers',82:'violent rain showers',95:'a thunderstorm',96:'a thunderstorm with hail',99:'a thunderstorm with hail'};
+async function weatherFacts(text){
+  try {
+    const m = text.match(/\b(?:in|for|at)\s+([A-Za-z][A-Za-z .'-]{1,38}?)(?:\s+(?:today|tomorrow|tonight|now|right now|this (?:week|weekend)))?\s*[?.!]?$/i);
+    const city = m && !/^(the|my|this|today|tomorrow)$/i.test(m[1].trim()) ? m[1].trim() : S.city;
+    let lat, lon, place = city;
+    if (city) {
+      const g = await (await fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&name=' + encodeURIComponent(city))).json();
+      if (!g.results?.length) return 'Weather lookup failed: the place "' + city + '" was not found. Ask the user to repeat the city.';
+      ({latitude: lat, longitude: lon, name: place} = g.results[0]);
+    } else {
+      const pos = await new Promise((ok, no) => navigator.geolocation ? navigator.geolocation.getCurrentPosition(ok, no, {timeout:8000}) : no());
+      lat = pos.coords.latitude; lon = pos.coords.longitude; place = "the user's current location";
+    }
+    const w = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=2`)).json();
+    const c = w.current, d = w.daily, tm = /tomorrow/i.test(text) ? 1 : 0;
+    return `Place: ${place}. Now: ${Math.round(c.temperature_2m)} degrees Celsius (feels like ${Math.round(c.apparent_temperature)}), ${WC[c.weather_code] || 'unclear conditions'}, humidity ${c.relative_humidity_2m} percent, wind ${Math.round(c.wind_speed_10m)} kilometres per hour. ${tm ? 'Tomorrow' : 'Today'}: ${WC[d.weather_code[tm]] || 'mixed conditions'}, high ${Math.round(d.temperature_2m_max[tm])}, low ${Math.round(d.temperature_2m_min[tm])}, chance of rain ${d.precipitation_probability_max[tm]} percent.`;
+  } catch {
+    return 'Weather lookup failed. Tell the user you could not get the weather, and suggest saying the weather in a specific city, or setting a home city in settings.';
+  }
+}
+
 /* ---------- Groq chat ---------- */
-const sys = v => {
+const sys = (v, x) => {
   const P = PERSONAS[S.persona] || PERSONAS.jarvis;
-  return `You are ${P.n.replace(/\./g,'')}, ${P.p} You are speaking aloud in a live voice conversation. Address the user as "${S.name || 'sir'}" now and then, not every sentence. Keep replies to one to three short sentences unless asked for detail. Use plain spoken language only: no markdown, lists, emojis, asterisks or code blocks. Say numbers and symbols the way a person would. Reply in the language the user speaks.${v ? ' You can see the screen, camera feed or images the user has shared. Answer from what you see, naturally and briefly.' : ''}${S.mem.length ? ' Things you know about the user: ' + S.mem.join('; ') + '.' : ''} Current date and time: ${new Date().toLocaleString()}.`;
+  return `You are ${P.n.replace(/\./g,'')}, ${P.p} You are speaking aloud in a live voice conversation. Address the user as "${S.name || 'sir'}" now and then, not every sentence. Keep replies to one to three short sentences unless asked for detail. Use plain spoken language only: no markdown, lists, emojis, asterisks or code blocks. Say numbers and symbols the way a person would. Reply in the language the user speaks.${x ? ' Live data to use in your answer, stated naturally without mentioning sources: ' + x : ''}${v ? ' You can see the screen, camera feed or images the user has shared. Answer from what you see, naturally and briefly.' : ''}${S.mem.length ? ' Things you know about the user: ' + S.mem.join('; ') + '.' : ''} Current date and time: ${new Date().toLocaleString()}.`;
 };
 
 async function send(text){
@@ -390,11 +415,15 @@ async function send(text){
   const el = addMsg('ai', '…'); mirror('…'); let full = '', buf = '', raw = '';
   const imgs = [...(vs && pv.videoWidth > 0 ? [frame()] : []), ...IMG].slice(0, 3), vm = vmodel(), useV = imgs.length > 0 && !!vm;
   if (imgs.length && !vm) toast('No vision model is available on your Groq account.');
-  const web = !useV && S.web && WEBQ.test(text) && ALL.includes(COMP);
-  const msgs = [{role:'system', content:sys(useV)}, ...S.hist.slice(-20)];
+  const wxq = !useV && /\b(weather|temperature|forecast|humidity|will it rain|is it raining)\b/i.test(text);
+  const extra = wxq ? await weatherFacts(text) : '';
+  const sm = ALL.includes('groq/compound-mini') ? 'groq/compound-mini' : ALL.includes('groq/compound') ? 'groq/compound' : '';
+  const oss = ALL.find(id => /^openai\/gpt-oss-(?:120b|20b)$/.test(id)) || '';
+  let web = !useV && !extra && S.web && WEBQ.test(text) && !!(sm || oss);
+  const msgs = [{role:'system', content:sys(useV, extra)}, ...S.hist.slice(-20)];
   if (useV) msgs[msgs.length-1] = {role:'user', content:[{type:'text', text}, ...imgs.map(url => ({type:'image_url', image_url:{url}}))]};
-  const model = useV ? vm : web ? COMP : S.model;
-  const body = web ? {model, messages:msgs} : {model, messages:msgs, stream:true, temperature:.7, max_tokens:600, ...(/gpt-oss/.test(model) ? {reasoning_effort:'low'} : useV && /qwen/.test(model) ? {reasoning_effort:'none'} : {})};
+  const mk = m => ({model:m, messages:msgs, stream:true, temperature:.7, max_tokens:600, ...(/gpt-oss/.test(m) ? {reasoning_effort:'low'} : useV && /qwen/.test(m) ? {reasoning_effort:'none'} : {})});
+  let body = web ? (sm ? {model:sm, messages:msgs} : {model:oss, messages:msgs, tools:[{type:'browser_search'}], reasoning_effort:'low'}) : mk(useV ? vm : S.model);
   const flush = last => {
     let m;
     while ((m = buf.match(/^([\s\S]*?[.!?]+["')\]]*)\s+/))) { speak(m[1]); buf = buf.slice(m[0].length); }
@@ -405,6 +434,7 @@ async function send(text){
     const call = () => fetch(API+'chat/completions', {method:'POST', signal:ctl.signal, headers:{'Content-Type':'application/json', Authorization:'Bearer '+S.key}, body:JSON.stringify(body)});
     let r = await call();
     if (r.status === 400 && body.reasoning_effort) { delete body.reasoning_effort; r = await call(); }
+    if (!r.ok && web) { web = false; body = mk(S.model); r = await call(); }
     if (!r.ok) { const j = await r.json().catch(()=>({})); const e = new Error(j.error?.message || 'Request failed ('+r.status+')'); e.status = r.status; throw e; }
     if (web) { full = ((await r.json()).choices[0].message.content || '').replace(/<think>[\s\S]*?<\/think>/g,'').trim(); buf = full; el.textContent = full; mirror(full); }
     else {
@@ -526,13 +556,14 @@ function loadVoices(){
 }
 if (synth) { synth.onvoiceschanged = loadVoices; loadVoices(); }
 Object.entries(PERSONAS).forEach(([k,p]) => $('#persona').append(new Option(p.n.replace(/\./g,''), k)));
-$('#persona').value = S.persona; $('#key').value = S.key; $('#model').value = S.model; $('#lang').value = S.lang; $('#name').value = S.name; $('#rate').value = S.rate;
+$('#persona').value = S.persona; $('#key').value = S.key; $('#model').value = S.model; $('#lang').value = S.lang; $('#name').value = S.name; $('#city').value = S.city; $('#rate').value = S.rate;
 $('#web').checked = S.web; $('#barge').checked = S.barge;
 $('#persona').onchange = e => { S.persona = e.target.value; applyP(); const v = synth && synth.getVoices().find(v => PERSONAS[S.persona].v.test(v.name)); if (v) { S.voice = v.name; $('#voice').value = v.name; } save(); };
 $('#key').oninput   = e => { S.key = e.target.value.trim(); save(); ALL = []; clearTimeout(modelT); modelT = setTimeout(loadModels, 600); };
 $('#model').onchange= e => { S.model = e.target.value; save(); };
 $('#lang').onchange = e => { S.lang = e.target.value; save(); };
 $('#name').oninput  = e => { S.name = e.target.value.trim(); save(); };
+$('#city').oninput  = e => { S.city = e.target.value.trim(); save(); };
 $('#voice').onchange= e => { S.voice = e.target.value; save(); };
 $('#rate').oninput  = e => { S.rate = +e.target.value; save(); };
 $('#web').onchange  = e => { S.web = e.target.checked; save(); };

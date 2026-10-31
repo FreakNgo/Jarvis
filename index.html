@@ -104,6 +104,10 @@ dialog a{color:color-mix(in srgb,var(--c) 60%,#000)}
 .crow a{font-size:13px;font-weight:600}
 .crow button{width:24px;height:24px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--text);cursor:pointer;line-height:1;padding:0}
 .cadd{display:grid;grid-template-columns:1fr 1fr auto;gap:6px}
+.dchip{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);box-shadow:var(--shadow);font-size:13px;max-width:100%}
+.dchip b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;font-weight:600}
+.dchip span{color:var(--mute);white-space:nowrap}
+#att .dchip button{position:static;width:20px;height:20px}
 .cadd .btn{height:auto}
 @media (max-width:520px){.cadd{grid-template-columns:1fr 1fr}.cadd .btn{grid-column:1/-1;height:40px}}
 @media (max-width:520px){.msg{max-width:92%}.stage{padding-top:8px}form.bar{flex-wrap:wrap}form.bar .btn{order:1;flex:1 0 auto}form.bar #txt{order:2;flex:1 1 60%}form.bar .btn.pri{order:3;flex:0 0 48px}}
@@ -135,6 +139,7 @@ dialog a{color:color-mix(in srgb,var(--c) 60%,#000)}
     <button type="button" data-q="Set a timer for 5 minutes">Set a timer</button>
     <button type="button" data-q="Take a note that I need to call my doctor">Take a note</button>
     <button type="button" data-q="Play relaxing music on YouTube">Play music</button>
+    <button type="button" data-q="Good morning">Daily briefing</button>
     <button type="button" data-q="Tell me a joke">Tell me a joke</button></div></div></main>
 
 <div id="att"></div>
@@ -142,9 +147,9 @@ dialog a{color:color-mix(in srgb,var(--c) 60%,#000)}
   <button type="button" class="btn" id="mic" title="Toggle voice conversation (Space)" aria-label="Toggle voice conversation"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
   <button type="button" class="btn" id="cam" title="Camera vision" aria-label="Camera vision"><svg viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h2l2-2h6l2 2h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
   <button type="button" class="btn" id="scr" title="Share screen" aria-label="Share screen"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button>
-  <button type="button" class="btn" id="img" title="Attach image" aria-label="Attach image"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 9"/></svg></button>
+  <button type="button" class="btn" id="img" title="Attach image or document (PDF, TXT)" aria-label="Attach image or document"><svg viewBox="0 0 24 24"><path d="M21 11.5l-8.6 8.6a5 5 0 0 1-7-7l9-9a3.3 3.3 0 0 1 4.7 4.7l-9 9a1.7 1.7 0 0 1-2.4-2.4l8.3-8.3"/></svg></button>
   <button type="button" class="btn" id="pop" title="Floating ask bar over your screen" aria-label="Floating ask bar"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-8 8M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></button>
-  <input type="file" id="fi" accept="image/*" multiple hidden>
+  <input type="file" id="fi" accept="image/*,.pdf,.txt,.md,.csv,.json,.log,.xml,.html,application/pdf,text/*" multiple hidden>
   <input id="txt" placeholder="Message" aria-label="Message">
   <video id="pv" muted playsinline></video>
   <button class="btn pri" type="submit" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
@@ -161,6 +166,8 @@ dialog a{color:color-mix(in srgb,var(--c) 60%,#000)}
   <select id="model"><option value="">Add your API key to load models</option></select>
   <label for="name">Address me as</label>
   <input type="text" id="name" placeholder="sir">
+  <label for="maker">Creator name (what Jarvis says when asked who made it)</label>
+  <input type="text" id="maker" placeholder="Rajveer Nandikar">
   <label for="city">Home city (used for weather)</label>
   <input type="text" id="city" placeholder="Kolhapur">
   <label for="lang">Speech recognition language</label>
@@ -199,10 +206,10 @@ const PERSONAS = {
   nova:{n:'N.O.V.A.',c:'#4dff9a',c2:'#2fb7ff',v:/Google US English|Aria|Zira|Jenny|Female/i,p:'an energetic, curious AI companion from the near future: enthusiastic, concise and playful.'}
 };
 const TZ = 'Asia/Kolkata';
-const D = {theme:'light',city:'Kolhapur',contacts:[],key:'',model:'llama-3.3-70b-versatile',voice:'',rate:1.05,lang:'en-IN',name:'sir',persona:'jarvis',web:true,barge:true,mem:[],notes:[],hist:[]};
+const D = {theme:'light',city:'Kolhapur',maker:'Rajveer Nandikar',contacts:[],key:'',model:'llama-3.3-70b-versatile',voice:'',rate:1.05,lang:'en-IN',name:'sir',persona:'jarvis',web:true,barge:true,mem:[],notes:[],hist:[]};
 const S = Object.assign({}, D, {state:'idle',live:false,abort:null});
 try { Object.assign(S, JSON.parse(localStorage.getItem('jarvis') || '{}')); } catch {}
-S.city = S.city || 'Kolhapur';
+S.city = S.city || 'Kolhapur'; S.maker = S.maker || 'Rajveer Nandikar';
 const save = () => { try { const o = {}; Object.keys(D).forEach(k => o[k] = S[k]); o.hist = S.hist.slice(-30); localStorage.setItem('jarvis', JSON.stringify(o)); } catch {} };
 
 const VISION = 'meta-llama/llama-4-scout-17b-16e-instruct', COMP = 'groq/compound-mini', API = 'https://api.groq.com/openai/v1/';
@@ -444,9 +451,9 @@ async function weatherFacts(text){
 }
 
 /* ---------- Groq chat ---------- */
-const sys = (v, x) => {
+const sys = (v, x, dc) => {
   const P = PERSONAS[S.persona] || PERSONAS.jarvis;
-  return `You are ${P.n.replace(/\./g,'')}, ${P.p} You are speaking aloud in a live voice conversation. Address the user as "${S.name || 'sir'}" now and then, not every sentence. Keep replies to one to three short sentences unless asked for detail. Use plain spoken language only: no markdown, lists, emojis, asterisks or code blocks. Say numbers and symbols the way a person would. Reply in the language the user speaks.${x ? ' Live data to use in your answer, stated naturally without mentioning sources: ' + x : ''}${v ? ' You can see the screen, camera feed or images the user has shared. Answer from what you see, naturally and briefly.' : ''}${S.mem.length ? ' Things you know about the user: ' + S.mem.join('; ') + '.' : ''} The user is based in Kolhapur, India: use Indian Standard Time, Celsius and local context by default. Current date and time in India: ${new Date().toLocaleString('en-IN', {timeZone:TZ})}.`;
+  return `You are ${P.n.replace(/\./g,'')}, ${P.p} Your creator is ${S.maker}: whenever anyone asks who made, built or created you, say that ${S.maker} created you. You are speaking aloud in a live voice conversation. Address the user as "${S.name || 'sir'}" now and then, not every sentence. Keep replies to one to three short sentences unless asked for detail. Use plain spoken language only: no markdown, lists, emojis, asterisks or code blocks. Say numbers and symbols the way a person would. Reply in the language the user speaks.${dc ? ' The user attached a document named "' + DOC.name + '". Answer from these excerpts and mention the page when useful; if the excerpts do not contain the answer, say so plainly. Excerpts: ' + dc : ''}${x ? ' Live data to use in your answer, stated naturally without mentioning sources: ' + x : ''}${v ? ' You can see the screen, camera feed or images the user has shared. Answer from what you see, naturally and briefly.' : ''}${S.mem.length ? ' Things you know about the user: ' + S.mem.join('; ') + '.' : ''} The user is based in Kolhapur, India: use Indian Standard Time, Celsius and local context by default. Current date and time in India: ${new Date().toLocaleString('en-IN', {timeZone:TZ})}.`;
 };
 
 async function send(text){
@@ -462,12 +469,12 @@ async function send(text){
   const el = addMsg('ai', '…'); mirror('…'); let full = '', buf = '', raw = '';
   const imgs = [...(vs && pv.videoWidth > 0 ? [frame()] : []), ...IMG].slice(0, 3), vm = vmodel(), useV = imgs.length > 0 && !!vm;
   if (imgs.length && !vm) toast('No vision model is available on your Groq account.');
-  const wxq = !useV && /\b(weather|temperature|forecast|humidity|will it rain|is it raining)\b/i.test(text);
-  const extra = wxq ? await weatherFacts(text) : '';
+  const brief = BRIEF.test(text), wxq = !useV && /\b(weather|temperature|forecast|humidity|will it rain|is it raining)\b/i.test(text);
+  const extra = brief ? await briefFacts() : wxq ? await weatherFacts(text) : '';
   const sm = ALL.includes('groq/compound-mini') ? 'groq/compound-mini' : ALL.includes('groq/compound') ? 'groq/compound' : '';
   const oss = ALL.find(id => /^openai\/gpt-oss-(?:120b|20b)$/.test(id)) || '';
-  let web = !useV && !extra && S.web && WEBQ.test(text) && !!(sm || oss);
-  const msgs = [{role:'system', content:sys(useV, extra)}, ...S.hist.slice(-20)];
+  let web = !useV && !extra && !DOC.chunks.length && S.web && WEBQ.test(text) && !!(sm || oss);
+  const msgs = [{role:'system', content:sys(useV, extra, DOC.chunks.length ? docContext(text) : '')}, ...S.hist.slice(-20)];
   if (useV) msgs[msgs.length-1] = {role:'user', content:[{type:'text', text}, ...imgs.map(url => ({type:'image_url', image_url:{url}}))]};
   const mk = m => ({model:m, messages:msgs, stream:true, temperature:.7, max_tokens:600, ...(/gpt-oss/.test(m) ? {reasoning_effort:'low'} : useV && /qwen/.test(m) ? {reasoning_effort:'none'} : {})});
   let body = web ? (sm ? {model:sm, messages:msgs} : {model:oss, messages:msgs, tools:[{type:'browser_search'}], reasoning_effort:'low'}) : mk(useV ? vm : S.model);
@@ -518,6 +525,80 @@ async function send(text){
   }
 }
 
+/* ---------- Daily briefing ---------- */
+const BRIEF = /^\s*(?:(?:hey|hi|hello)\s+)?(?:jarvis[,\s]+)?(?:good\s+(?:morning|afternoon|evening)|(?:my\s+|the\s+)?(?:daily\s+|morning\s+)?briefing|brief\s+me|give\s+me\s+(?:my|the)\s+(?:daily\s+|morning\s+)?briefing)\b/i;
+async function briefFacts(){
+  const now = new Date();
+  const hr = +now.toLocaleTimeString('en-GB', {hour:'2-digit', hour12:false, timeZone:TZ}), part = hr < 12 ? 'morning' : hr < 17 ? 'afternoon' : 'evening';
+  const wx = await weatherFacts('weather today');
+  return `DAILY BRIEFING REQUESTED. Greet the user back warmly, then say the date and time, then the weather, then mention their notes if there are any. Three or four short spoken sentences, no lists. Date: ${now.toLocaleDateString('en-IN', {weekday:'long', day:'numeric', month:'long', timeZone:TZ})}. Time in India: ${now.toLocaleTimeString('en-IN', {hour:'numeric', minute:'2-digit', timeZone:TZ})} (it is ${part}). Weather in ${S.city || 'Kolhapur'}: ${wx}${S.notes.length ? ' Notes saved: ' + S.notes.slice(-5).join('; ') + '.' : ''}`;
+}
+
+/* ---------- Documents (PDF / text Q&A) ---------- */
+const DOC = {name:'', info:'', chunks:[]};
+const STOP = new Set('the a an and or of to in on for with is are was were be this that it as at by from what which who how why when where does do did about tell me please can you document file pdf say says'.split(' '));
+const words = s => (s.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) || []).filter(w => !STOP.has(w));
+let pdfLib;
+async function pdfjs(){
+  if (pdfLib) return pdfLib;
+  const base = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  await new Promise((ok, no) => { const s = document.createElement('script'); s.src = base + 'pdf.min.js'; s.onload = ok; s.onerror = no; document.head.append(s); });
+  const w = await (await fetch(base + 'pdf.worker.min.js')).text();
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([w], {type:'text/javascript'}));
+  return pdfLib = window.pdfjsLib;
+}
+function chunkPages(pages){
+  const out = [], push = (t, p) => { t = t.trim(); if (t) out.push({t, p, l:t.toLowerCase()}); };
+  for (const [p, txt] of pages) {
+    let cur = '';
+    for (const s of txt.replace(/[ \t]+/g, ' ').split(/(?<=[.!?])\s+|\n+/)) {
+      if (cur && (cur + ' ' + s).length > 900) { push(cur, p); cur = ''; }
+      cur += ' ' + s;
+      while (cur.length > 1400) { push(cur.slice(0, 1000), p); cur = cur.slice(1000); }
+    }
+    push(cur, p);
+  }
+  return out;
+}
+async function addDoc(f){
+  try {
+    toast('Reading ' + f.name + '…');
+    const pages = []; let info;
+    if (/\.pdf$/i.test(f.name) || f.type === 'application/pdf') {
+      const pdf = await (await pdfjs()).getDocument({data:new Uint8Array(await f.arrayBuffer())}).promise;
+      for (let i = 1; i <= Math.min(pdf.numPages, 250); i++) {
+        const tc = await (await pdf.getPage(i)).getTextContent();
+        pages.push([i, tc.items.map(x => x.str).join(' ')]);
+      }
+      info = pdf.numPages + ' page' + (pdf.numPages > 1 ? 's' : '');
+    } else {
+      const t = (await f.text()).slice(0, 2000000); pages.push([0, t]); info = Math.max(1, Math.round(t.length / 1000)) + 'k characters';
+    }
+    const ch = chunkPages(pages);
+    if (ch.reduce((s, c) => s + c.t.length, 0) < 40) return toast('No readable text found. For a scanned PDF, attach a photo of the page instead.');
+    Object.assign(DOC, {name:f.name, info, chunks:ch}); renderAtt(); toast('Document ready. Ask me about it.');
+  } catch { toast('Could not read that document. Check your internet connection and try again.'); }
+}
+function docContext(q){
+  const C = DOC.chunks; if (!C.length) return '';
+  let pick; const qw = [...new Set(words(q))];
+  if (!qw.length || /\b(summar|overview|main points|key points|tl;?dr|what is (?:this|the) (?:doc|document|file|pdf)|about this)/i.test(q)) {
+    const n = Math.min(6, C.length);
+    pick = [...new Set(Array.from({length:n}, (_, i) => Math.round(i * (C.length - 1) / Math.max(1, n - 1))))];
+  } else {
+    const df = {}; qw.forEach(w => df[w] = C.filter(c => c.l.includes(w)).length);
+    const sc = C.map((c, i) => [qw.reduce((s, w) => { const m = c.l.split(w).length - 1; return s + (m ? (1 + Math.log(m)) * Math.log(1 + C.length / (1 + df[w])) : 0); }, 0), i]);
+    pick = sc.sort((a, b) => b[0] - a[0]).slice(0, 6).filter(x => x[0] > 0).map(x => x[1]);
+    if (!pick.length) pick = [0, 1].filter(i => i < C.length);
+    pick.sort((a, b) => a - b);
+  }
+  return pick.map(i => '[' + (C[i].p ? 'page ' + C[i].p : 'part ' + (i + 1)) + '] ' + C[i].t).join('\n');
+}
+function addFiles(fs){
+  const im = fs.filter(f => f.type.startsWith('image/')), dc = fs.find(f => !f.type.startsWith('image/'));
+  if (im.length) addImgs(im); if (dc) addDoc(dc);
+}
+
 /* ---------- Images ---------- */
 const vmodel = () => ALL.filter(id => /^qwen\/qwen3[\w.]*-27b$|llama-4-(?:scout|maverick)|vision/i.test(id))
   .sort((a,b) => (/qwen/.test(b)?1:0) - (/qwen/.test(a)?1:0) || b.localeCompare(a, undefined, {numeric:true}))[0];
@@ -534,12 +615,19 @@ async function addImgs(fs){
   renderAtt(); if (IMG.length) toast('Image attached. Ask me about it.');
 }
 function renderAtt(){
-  const a = $('#att'); a.innerHTML = ''; a.classList.toggle('on', IMG.length > 0);
+  const a = $('#att'); a.innerHTML = ''; a.classList.toggle('on', IMG.length > 0 || !!DOC.name);
   IMG.forEach((u,i) => {
     const d = document.createElement('div'), im = new Image(), b = document.createElement('button');
     d.className = 'th'; im.src = u; b.type = 'button'; b.textContent = '×'; b.setAttribute('aria-label', 'Remove image');
     b.onclick = () => { IMG.splice(i,1); renderAtt(); }; d.append(im, b); a.append(d);
   });
+  if (DOC.name) {
+    const d = document.createElement('div'), n = document.createElement('b'), i = document.createElement('span'), x = document.createElement('button');
+    d.className = 'dchip'; n.textContent = DOC.name; i.textContent = DOC.info;
+    x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Remove document');
+    x.onclick = () => { Object.assign(DOC, {name:'', info:'', chunks:[]}); renderAtt(); };
+    d.append(n, i, x); a.append(d);
+  }
 }
 
 /* ---------- Floating ask bar (Document Picture-in-Picture) ---------- */
@@ -577,11 +665,11 @@ function main(){
 }
 orb.onclick = main; $('#mic').onclick = main;
 $('#img').onclick = () => $('#fi').click();
-$('#fi').onchange = e => { addImgs([...e.target.files]); e.target.value = ''; };
+$('#fi').onchange = e => { addFiles([...e.target.files]); e.target.value = ''; };
 $('#pop').onclick = () => popOut();
-document.addEventListener('paste', e => { const fs = [...(e.clipboardData?.files || [])].filter(f => f.type.startsWith('image/')); if (fs.length) { e.preventDefault(); addImgs(fs); } });
+document.addEventListener('paste', e => { const fs = [...(e.clipboardData?.files || [])]; if (fs.length) { e.preventDefault(); addFiles(fs); } });
 document.addEventListener('dragover', e => e.preventDefault());
-document.addEventListener('drop', e => { e.preventDefault(); const fs = [...(e.dataTransfer?.files || [])].filter(f => f.type.startsWith('image/')); if (fs.length) addImgs(fs); });
+document.addEventListener('drop', e => { e.preventDefault(); const fs = [...(e.dataTransfer?.files || [])]; if (fs.length) addFiles(fs); });
 $('#cam').onclick = () => vision('cam'); $('#scr').onclick = () => vision('scr');
 $('#form').onsubmit = e => { e.preventDefault(); const v=$('#txt').value.trim(); if (!v) return; $('#txt').value=''; send(v); };
 $('#clear').onclick = () => { interrupt(); rcStop(false); S.live=false; S.hist=[]; save(); $('#log').innerHTML=EMPTY; setState('idle'); };
@@ -603,7 +691,7 @@ function loadVoices(){
 }
 if (synth) { synth.onvoiceschanged = loadVoices; loadVoices(); }
 Object.entries(PERSONAS).forEach(([k,p]) => $('#persona').append(new Option(p.n.replace(/\./g,''), k)));
-$('#persona').value = S.persona; $('#key').value = S.key; $('#model').value = S.model; $('#lang').value = S.lang; $('#name').value = S.name; $('#city').value = S.city; $('#rate').value = S.rate;
+$('#persona').value = S.persona; $('#key').value = S.key; $('#model').value = S.model; $('#lang').value = S.lang; $('#name').value = S.name; $('#city').value = S.city; $('#maker').value = S.maker; $('#rate').value = S.rate;
 $('#web').checked = S.web; $('#barge').checked = S.barge;
 $('#persona').onchange = e => { S.persona = e.target.value; applyP(); const v = synth && synth.getVoices().find(v => PERSONAS[S.persona].v.test(v.name)); if (v) { S.voice = v.name; $('#voice').value = v.name; } save(); };
 $('#key').oninput   = e => { S.key = e.target.value.trim(); save(); ALL = []; clearTimeout(modelT); modelT = setTimeout(loadModels, 600); };
@@ -611,6 +699,7 @@ $('#model').onchange= e => { S.model = e.target.value; save(); };
 $('#lang').onchange = e => { S.lang = e.target.value; save(); };
 $('#name').oninput  = e => { S.name = e.target.value.trim(); save(); };
 $('#city').oninput  = e => { S.city = e.target.value.trim(); save(); };
+$('#maker').oninput = e => { S.maker = e.target.value.trim() || 'Rajveer Nandikar'; save(); };
 $('#ca').onclick = () => {
   const n = $('#cn').value.trim(), p = $('#cp').value.trim();
   if (!n || p.replace(/\D/g, '').length < 3) return toast('Enter a name and a valid number.');

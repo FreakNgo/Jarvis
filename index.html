@@ -83,6 +83,13 @@ dialog a{color:var(--c)}
 .chk input{accent-color:var(--c);width:16px;height:16px}
 dialog{max-height:calc(100dvh - 32px);overflow:auto}
 #pv{display:none;position:fixed;right:14px;bottom:104px;width:160px;max-height:120px;object-fit:cover;border-radius:12px;border:1px solid var(--c);background:#000;z-index:5}
+#att{display:none;gap:8px;flex-wrap:wrap;padding-top:8px}
+#att.on{display:flex}
+#att .th{position:relative}
+#att img{height:56px;border-radius:8px;border:1px solid var(--line);display:block}
+#att button{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:1px solid var(--line);background:var(--panel2);color:var(--text);cursor:pointer;line-height:1;padding:0}
+.ti{display:block;max-width:180px;border-radius:8px;margin-bottom:6px}
+@media (max-width:520px){form.bar{flex-wrap:wrap}form.bar .btn{order:1;flex:1 0 auto}form.bar #txt{order:2;flex:1 1 60%}form.bar .btn.pri{order:3;flex:0 0 48px}}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}}
 @media (max-width:520px){.msg{max-width:92%}.stage{padding-top:10px}}
 </style>
@@ -105,10 +112,14 @@ dialog{max-height:calc(100dvh - 32px);overflow:auto}
 
 <main id="log"><div id="empty">Systems online. Tap the core and start talking, or type below.</div></main>
 
+<div id="att"></div>
 <form class="bar" id="form" autocomplete="off">
   <button type="button" class="btn" id="mic" title="Toggle voice conversation (Space)" aria-label="Toggle voice conversation"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
   <button type="button" class="btn" id="cam" title="Camera vision" aria-label="Camera vision"><svg viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h2l2-2h6l2 2h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
   <button type="button" class="btn" id="scr" title="Share screen" aria-label="Share screen"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button>
+  <button type="button" class="btn" id="img" title="Attach image" aria-label="Attach image"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 9"/></svg></button>
+  <button type="button" class="btn" id="pop" title="Floating ask bar over your screen" aria-label="Floating ask bar"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-8 8M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></button>
+  <input type="file" id="fi" accept="image/*" multiple hidden>
   <input id="txt" placeholder="Message" aria-label="Message">
   <video id="pv" muted playsinline></video>
   <button class="btn pri" type="submit" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
@@ -169,13 +180,14 @@ const synth = window.speechSynthesis, orb = $('#orb'), pv = $('#pv');
 const EMPTY = $('#log').innerHTML;
 const LABEL = {idle:'Standby',listening:'Listening',thinking:'Thinking',speaking:'Speaking'};
 const HINT  = {idle:'Tap the core to talk',listening:'Listening… tap to stop',thinking:'Tap to cancel',speaking:'Talk or tap to interrupt'};
-let ALL = [], gen = 0, q = 0, streamDone = true, trId = 0, toastT, modelT, vs = null;
+let ALL = [], gen = 0, q = 0, streamDone = true, trId = 0, toastT, modelT, vs = null, pip = null, IMG = [], IMGNEW = false;
 
 function setState(s){
   S.state = s; document.body.dataset.state = s;
   $('#st').textContent = LABEL[s]; $('#hint').textContent = HINT[s];
   $('#mic').classList.toggle('on', S.live);
   if (s !== 'listening') $('#cap').textContent = '';
+  pipUI();
 }
 function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),3200); }
 function addMsg(role, text){
@@ -202,7 +214,7 @@ function speak(t){
   u.onend = u.onerror = () => { if (g!==gen) return; q--; if (q<=0 && streamDone) finish(); };
   synth.speak(u);
 }
-const say = t => { addMsg('ai', t); speak(t); };
+const say = t => { addMsg('ai', t); mirror(t); speak(t); };
 function stopSpeak(){ gen++; q=0; streamDone=true; synth && synth.cancel(); }
 function finish(){ if (S.live) listen(); else setState('idle'); }
 const back = finish;
@@ -264,9 +276,9 @@ function tick(now){
     if (heard && now - last > 950) { heard = false; loud = 0; rcStop(true); setState('thinking'); }
     else if (!heard && now - rcT > 25000) rcStop(false);
   }
-  requestAnimationFrame(tick);
 }
-requestAnimationFrame(tick);
+try { const w = new Worker(URL.createObjectURL(new Blob(['setInterval(()=>postMessage(0),40)']))); w.onmessage = () => tick(performance.now()); }
+catch { setInterval(() => tick(performance.now()), 40); }
 
 /* ---------- Groq models ---------- */
 const PREFER = ['llama-3.3-70b-versatile','openai/gpt-oss-120b','openai/gpt-oss-20b','llama-3.1-8b-instant'];
@@ -293,13 +305,14 @@ async function vision(kind){
     vs = s; s.kind = kind; pv.srcObject = s; pv.style.display = 'block'; pv.play();
     s.getVideoTracks()[0].onended = stopV;
     $('#cam').classList.toggle('on', kind==='cam'); $('#scr').classList.toggle('on', kind==='scr');
-    toast('Ask me what I can see.');
+    toast(kind==='scr' ? 'Screen shared. Ask me about it.' : 'Camera on. Ask me what you see.');
+    if (kind==='scr' && !pip) popOut(true);
   } catch { toast(kind==='cam' ? 'Camera access was blocked.' : 'Screen sharing was cancelled.'); }
 }
 function stopV(){ vs?.getTracks().forEach(t => t.stop()); vs = null; pv.style.display = 'none'; pv.srcObject = null; $('#cam').classList.remove('on'); $('#scr').classList.remove('on'); }
 function frame(){
-  const w = Math.min(1024, pv.videoWidth), h = Math.round(pv.videoHeight*w/pv.videoWidth), c = document.createElement('canvas');
-  c.width = w; c.height = h; c.getContext('2d').drawImage(pv, 0, 0, w, h); return c.toDataURL('image/jpeg', .7);
+  const w = Math.min(1600, pv.videoWidth), h = Math.round(pv.videoHeight*w/pv.videoWidth), c = document.createElement('canvas');
+  c.width = w; c.height = h; c.getContext('2d').drawImage(pv, 0, 0, w, h); return c.toDataURL('image/jpeg', .8);
 }
 
 /* ---------- Voice commands ---------- */
@@ -337,14 +350,14 @@ function act(t){
   return null;
 }
 function local(t, r){
-  addMsg('user', t); addMsg('ai', r); S.hist.push({role:'user',content:t},{role:'assistant',content:r}); save();
+  addMsg('user', t); addMsg('ai', r); mirror(r); S.hist.push({role:'user',content:t},{role:'assistant',content:r}); save();
   streamDone = true; q = 0; setState('thinking'); speak(r); if (q <= 0) finish();
 }
 
 /* ---------- Groq chat ---------- */
-const sys = () => {
+const sys = v => {
   const P = PERSONAS[S.persona] || PERSONAS.jarvis;
-  return `You are ${P.n.replace(/\./g,'')}, ${P.p} You are speaking aloud in a live voice conversation. Address the user as "${S.name || 'sir'}" now and then, not every sentence. Keep replies to one to three short sentences unless asked for detail. Use plain spoken language only: no markdown, lists, emojis, asterisks or code blocks. Say numbers and symbols the way a person would. Reply in the language the user speaks.${S.mem.length ? ' Things you know about the user: ' + S.mem.join('; ') + '.' : ''} Current date and time: ${new Date().toLocaleString()}.`;
+  return `You are ${P.n.replace(/\./g,'')}, ${P.p} You are speaking aloud in a live voice conversation. Address the user as "${S.name || 'sir'}" now and then, not every sentence. Keep replies to one to three short sentences unless asked for detail. Use plain spoken language only: no markdown, lists, emojis, asterisks or code blocks. Say numbers and symbols the way a person would. Reply in the language the user speaks.${v ? ' You can see the screen, camera feed or images the user has shared. Answer from what you see, naturally and briefly.' : ''}${S.mem.length ? ' Things you know about the user: ' + S.mem.join('; ') + '.' : ''} Current date and time: ${new Date().toLocaleString()}.`;
 };
 
 async function send(text){
@@ -354,16 +367,17 @@ async function send(text){
   if (!ALL.length) await loadModels();
   const g = gen, ctl = S.abort = new AbortController();
   streamDone = false;
-  addMsg('user', text); S.hist.push({role:'user', content:text}); save();
+  const um = addMsg('user', text); S.hist.push({role:'user', content:text}); save();
+  if (IMGNEW && IMG.length) { IMG.forEach(u => { const i = new Image(); i.src = u; i.className = 'ti'; um.prepend(i); }); IMGNEW = false; }
   setState('thinking');
-  const el = addMsg('ai', '…'); let full = '', buf = '';
-  const look = !!vs && pv.videoWidth > 0 && LOOK.test(text), useV = look && ALL.includes(VISION);
-  if (look && !useV) toast('Vision model is not available on your account.');
+  const el = addMsg('ai', '…'); mirror('…'); let full = '', buf = '', raw = '';
+  const imgs = [...(vs && pv.videoWidth > 0 ? [frame()] : []), ...IMG].slice(0, 3), vm = vmodel(), useV = imgs.length > 0 && !!vm;
+  if (imgs.length && !vm) toast('No vision model is available on your Groq account.');
   const web = !useV && S.web && WEBQ.test(text) && ALL.includes(COMP);
-  const msgs = [{role:'system', content:sys()}, ...S.hist.slice(-20)];
-  if (useV) msgs[msgs.length-1] = {role:'user', content:[{type:'text', text}, {type:'image_url', image_url:{url:frame()}}]};
-  const model = useV ? VISION : web ? COMP : S.model;
-  const body = web ? {model, messages:msgs} : {model, messages:msgs, stream:true, temperature:.7, max_tokens:600, ...(/gpt-oss/.test(model) ? {reasoning_effort:'low'} : {})};
+  const msgs = [{role:'system', content:sys(useV)}, ...S.hist.slice(-20)];
+  if (useV) msgs[msgs.length-1] = {role:'user', content:[{type:'text', text}, ...imgs.map(url => ({type:'image_url', image_url:{url}}))]};
+  const model = useV ? vm : web ? COMP : S.model;
+  const body = web ? {model, messages:msgs} : {model, messages:msgs, stream:true, temperature:.7, max_tokens:600, ...(/gpt-oss/.test(model) ? {reasoning_effort:'low'} : useV && /qwen/.test(model) ? {reasoning_effort:'none'} : {})};
   const flush = last => {
     let m;
     while ((m = buf.match(/^([\s\S]*?[.!?]+["')\]]*)\s+/))) { speak(m[1]); buf = buf.slice(m[0].length); }
@@ -371,9 +385,11 @@ async function send(text){
     if (last && buf.trim()) { speak(buf); buf = ''; }
   };
   try {
-    const r = await fetch(API+'chat/completions', {method:'POST', signal:ctl.signal, headers:{'Content-Type':'application/json', Authorization:'Bearer '+S.key}, body:JSON.stringify(body)});
+    const call = () => fetch(API+'chat/completions', {method:'POST', signal:ctl.signal, headers:{'Content-Type':'application/json', Authorization:'Bearer '+S.key}, body:JSON.stringify(body)});
+    let r = await call();
+    if (r.status === 400 && body.reasoning_effort) { delete body.reasoning_effort; r = await call(); }
     if (!r.ok) { const j = await r.json().catch(()=>({})); const e = new Error(j.error?.message || 'Request failed ('+r.status+')'); e.status = r.status; throw e; }
-    if (web) { full = (await r.json()).choices[0].message.content || ''; buf = full; el.textContent = full; }
+    if (web) { full = ((await r.json()).choices[0].message.content || '').replace(/<think>[\s\S]*?<\/think>/g,'').trim(); buf = full; el.textContent = full; mirror(full); }
     else {
       const rd = r.body.getReader(), dec = new TextDecoder(); let sse = '';
       for (;;) {
@@ -385,7 +401,11 @@ async function send(text){
           const d = l.slice(5).trim(); if (!d || d==='[DONE]') continue;
           try {
             const t = JSON.parse(d).choices[0].delta.content;
-            if (t) { full += t; buf += t; el.textContent = full; $('#log').scrollTop = $('#log').scrollHeight; if (g===gen) flush(false); }
+            if (t) {
+              raw += t;
+              const v = raw.replace(/<think>[\s\S]*?(?:<\/think>|$)/g,'').replace(/<(?:t(?:h(?:i(?:n(?:k)?)?)?)?)?$/,'').replace(/^\s+/,'');
+              if (v.length > full.length) { buf += v.slice(full.length); full = v; el.textContent = full; mirror(full); $('#log').scrollTop = $('#log').scrollHeight; if (g===gen) flush(false); }
+            }
           } catch {}
         }
       }
@@ -404,6 +424,56 @@ async function send(text){
   }
 }
 
+/* ---------- Images ---------- */
+const vmodel = () => ALL.filter(id => /^qwen\/qwen3[\w.]*-27b$|llama-4-(?:scout|maverick)|vision/i.test(id))
+  .sort((a,b) => (/qwen/.test(b)?1:0) - (/qwen/.test(a)?1:0) || b.localeCompare(a, undefined, {numeric:true}))[0];
+async function addImgs(fs){
+  for (const f of fs) {
+    if (IMG.length >= 3) { toast('Up to 3 images at a time.'); break; }
+    try {
+      const bm = await createImageBitmap(f), sc = Math.min(1, 1280 / Math.max(bm.width, bm.height)), c = document.createElement('canvas');
+      c.width = Math.round(bm.width*sc); c.height = Math.round(bm.height*sc);
+      const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(bm, 0, 0, c.width, c.height);
+      IMG.push(c.toDataURL('image/jpeg', .85)); IMGNEW = true;
+    } catch { toast('Could not read that image.'); }
+  }
+  renderAtt(); if (IMG.length) toast('Image attached. Ask me about it.');
+}
+function renderAtt(){
+  const a = $('#att'); a.innerHTML = ''; a.classList.toggle('on', IMG.length > 0);
+  IMG.forEach((u,i) => {
+    const d = document.createElement('div'), im = new Image(), b = document.createElement('button');
+    d.className = 'th'; im.src = u; b.type = 'button'; b.textContent = '×'; b.setAttribute('aria-label', 'Remove image');
+    b.onclick = () => { IMG.splice(i,1); renderAtt(); }; d.append(im, b); a.append(d);
+  });
+}
+
+/* ---------- Floating ask bar (Document Picture-in-Picture) ---------- */
+const PIPCSS = `:root{color-scheme:dark}*{box-sizing:border-box;margin:0}body{font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;background:#060a12;color:#e8f1ff;padding:10px;display:flex;flex-direction:column;gap:8px;height:100vh;--c:#35d0ff}
+.h{display:flex;align-items:center;gap:8px;font-size:12px;color:#7f91ae}.h i{width:8px;height:8px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c)}.h b{color:#e8f1ff;letter-spacing:.15em;font-weight:600}.h span{flex:1}
+button{border:1px solid #1a2842;background:#0b1220;color:#e8f1ff;border-radius:8px;padding:6px 12px;font:inherit;cursor:pointer}button:hover{border-color:var(--c)}
+#pr{flex:1;overflow:auto;font-size:13px;color:#cfe0ff;min-height:0;white-space:pre-wrap}
+form{display:flex;gap:6px}input{flex:1;min-width:0;padding:9px 12px;border-radius:9px;border:1px solid #1a2842;background:#0b1220;color:#e8f1ff;font:inherit}input:focus{outline:none;border-color:var(--c)}form button{background:var(--c);color:#02101a;border:0;font-weight:600}`;
+const mirror = t => { if (pip) { const e = pip.document.getElementById('pr'); if (e) e.textContent = t; } };
+function pipUI(){
+  if (!pip) return; const d = pip.document, s = d.getElementById('ps'); if (!s) return;
+  s.textContent = LABEL[S.state]; d.getElementById('pm').textContent = S.live ? 'Stop' : 'Talk';
+  d.body.style.setProperty('--c', getComputedStyle(document.body).getPropertyValue('--c'));
+}
+async function popOut(quiet){
+  if (pip) { pip.close(); return; }
+  if (!window.documentPictureInPicture) return toast('The floating bar needs Chrome or Edge.');
+  try { pip = await documentPictureInPicture.requestWindow({width:440, height:200}); }
+  catch { return toast(quiet ? 'Tap the pop-out button to float a question bar over your screen.' : 'Could not open the floating bar.'); }
+  const d = pip.document;
+  d.head.innerHTML = `<meta charset="utf-8"><title>Ask</title><style>${PIPCSS}</style>`;
+  d.body.innerHTML = `<div class="h"><i></i><b>${(PERSONAS[S.persona] || PERSONAS.jarvis).n}</b><span id="ps"></span><button id="pm" type="button"></button></div><div id="pr">Ask me anything about what is on your screen.</div><form id="pf" autocomplete="off"><input id="pi" placeholder="Ask about your screen…"><button>Ask</button></form>`;
+  d.getElementById('pf').onsubmit = e => { e.preventDefault(); const i = d.getElementById('pi'), v = i.value.trim(); if (v) { i.value = ''; send(v); } };
+  d.getElementById('pm').onclick = main;
+  pip.addEventListener('pagehide', () => { pip = null; $('#pop').classList.remove('on'); });
+  $('#pop').classList.add('on'); pipUI(); d.getElementById('pi').focus();
+}
+
 /* ---------- Controls ---------- */
 function interrupt(){ trId++; S.abort?.abort(); stopSpeak(); }
 function main(){
@@ -412,6 +482,12 @@ function main(){
   else { if (!S.key) { $('#dlg').showModal(); return; } S.live = true; listen(); }
 }
 orb.onclick = main; $('#mic').onclick = main;
+$('#img').onclick = () => $('#fi').click();
+$('#fi').onchange = e => { addImgs([...e.target.files]); e.target.value = ''; };
+$('#pop').onclick = () => popOut();
+document.addEventListener('paste', e => { const fs = [...(e.clipboardData?.files || [])].filter(f => f.type.startsWith('image/')); if (fs.length) { e.preventDefault(); addImgs(fs); } });
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => { e.preventDefault(); const fs = [...(e.dataTransfer?.files || [])].filter(f => f.type.startsWith('image/')); if (fs.length) addImgs(fs); });
 $('#cam').onclick = () => vision('cam'); $('#scr').onclick = () => vision('scr');
 $('#form').onsubmit = e => { e.preventDefault(); const v=$('#txt').value.trim(); if (!v) return; $('#txt').value=''; send(v); };
 $('#clear').onclick = () => { interrupt(); rcStop(false); S.live=false; S.hist=[]; save(); $('#log').innerHTML=EMPTY; setState('idle'); };
@@ -449,6 +525,7 @@ $('#test').onclick  = () => { synth.cancel(); speak('All systems are online and 
 $('#cfg').onclick   = () => $('#dlg').showModal();
 $('#close').onclick = () => $('#dlg').close();
 if (!S.key) $('#dlg').showModal(); else loadModels();
+
 </script>
 </body>
 </html>

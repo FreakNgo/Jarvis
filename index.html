@@ -152,7 +152,7 @@ dialog a{color:color-mix(in srgb,var(--c) 60%,#000)}
   <label for="name">Address me as</label>
   <input type="text" id="name" placeholder="sir">
   <label for="city">Home city (used for weather)</label>
-  <input type="text" id="city" placeholder="e.g. Pune">
+  <input type="text" id="city" placeholder="Kolhapur">
   <label for="lang">Speech recognition language</label>
   <select id="lang">
     <option value="">Auto-detect</option>
@@ -184,9 +184,11 @@ const PERSONAS = {
   alfred:{n:'A.L.F.R.E.D.',c:'#f5c35c',c2:'#c0803a',v:/Daniel|UK English Male|Rishi|Ryan/i,p:'a dignified old-world butler: formal, wise, gentle and quietly sarcastic when warranted.'},
   nova:{n:'N.O.V.A.',c:'#4dff9a',c2:'#2fb7ff',v:/Google US English|Aria|Zira|Jenny|Female/i,p:'an energetic, curious AI companion from the near future: enthusiastic, concise and playful.'}
 };
-const D = {theme:'light',city:'',key:'',model:'llama-3.3-70b-versatile',voice:'',rate:1.05,lang:'en-IN',name:'sir',persona:'jarvis',web:true,barge:true,mem:[],notes:[],hist:[]};
+const TZ = 'Asia/Kolkata';
+const D = {theme:'light',city:'Kolhapur',key:'',model:'llama-3.3-70b-versatile',voice:'',rate:1.05,lang:'en-IN',name:'sir',persona:'jarvis',web:true,barge:true,mem:[],notes:[],hist:[]};
 const S = Object.assign({}, D, {state:'idle',live:false,abort:null});
 try { Object.assign(S, JSON.parse(localStorage.getItem('jarvis') || '{}')); } catch {}
+S.city = S.city || 'Kolhapur';
 const save = () => { try { const o = {}; Object.keys(D).forEach(k => o[k] = S[k]); o.hist = S.hist.slice(-30); localStorage.setItem('jarvis', JSON.stringify(o)); } catch {} };
 
 const VISION = 'meta-llama/llama-4-scout-17b-16e-instruct', COMP = 'groq/compound-mini', API = 'https://api.groq.com/openai/v1/';
@@ -346,8 +348,8 @@ function go(url){
 }
 function act(t){
   const s = t.trim().replace(/[.!?]+$/,''); let m;
-  if (/^what('?s| is)? ?(the )?(current )?time( is it)?( now)?$|^what time is it/i.test(s)) return 'It is ' + new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}) + '.';
-  if (/what('?s| is) (the )?(date|day)|what day is (it|today)|today'?s date/i.test(s)) return 'Today is ' + new Date().toLocaleDateString([], {weekday:'long',day:'numeric',month:'long',year:'numeric'}) + '.';
+  if (/^what('?s| is)? ?(the )?(current )?time( is it)?( now)?$|^what time is it/i.test(s)) return 'It is ' + new Date().toLocaleTimeString('en-IN', {hour:'numeric',minute:'2-digit',timeZone:TZ}) + '.';
+  if (/what('?s| is) (the )?(date|day)|what day is (it|today)|today'?s date/i.test(s)) return 'Today is ' + new Date().toLocaleDateString('en-IN', {weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:TZ}) + '.';
   if ((m = s.match(/(?:timer|remind(?:er)?|alarm)\b.*?\b(?:for|in|after)\s+(\d+(?:\.\d+)?|an?|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|thirty|forty|sixty|half)\s*(?:an? )?(second|minute|min|hour)s?\b\s*(?:(?:to|that|about)\s+(.+))?/i))) {
     const n = NUM[m[1].toLowerCase()] ?? parseFloat(m[1]), what = m[3], u = m[2] === 'min' ? 'minute' : m[2];
     setTimeout(() => say(what ? 'Reminder: ' + what + '.' : 'Your ' + n + ' ' + u + (n===1?'':'s') + ' timer is up.'), n * UNIT[m[2]] * 1000);
@@ -378,10 +380,10 @@ const WC = {0:'clear sky',1:'mainly clear',2:'partly cloudy',3:'overcast',45:'fo
 async function weatherFacts(text){
   try {
     const m = text.match(/\b(?:in|for|at)\s+([A-Za-z][A-Za-z .'-]{1,38}?)(?:\s+(?:today|tomorrow|tonight|now|right now|this (?:week|weekend)))?\s*[?.!]?$/i);
-    const city = m && !/^(the|my|this|today|tomorrow)$/i.test(m[1].trim()) ? m[1].trim() : S.city;
+    const city = m && !/^(the|my|this|today|tomorrow)$/i.test(m[1].trim()) ? m[1].trim() : (S.city || 'Kolhapur');
     let lat, lon, place = city;
     if (city) {
-      const g = await (await fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&name=' + encodeURIComponent(city))).json();
+      const g = await (await fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&name=' + encodeURIComponent(city) + (city.toLowerCase() === 'kolhapur' ? '&countryCode=IN' : ''))).json();
       if (!g.results?.length) return 'Weather lookup failed: the place "' + city + '" was not found. Ask the user to repeat the city.';
       ({latitude: lat, longitude: lon, name: place} = g.results[0]);
     } else {
@@ -399,7 +401,7 @@ async function weatherFacts(text){
 /* ---------- Groq chat ---------- */
 const sys = (v, x) => {
   const P = PERSONAS[S.persona] || PERSONAS.jarvis;
-  return `You are ${P.n.replace(/\./g,'')}, ${P.p} You are speaking aloud in a live voice conversation. Address the user as "${S.name || 'sir'}" now and then, not every sentence. Keep replies to one to three short sentences unless asked for detail. Use plain spoken language only: no markdown, lists, emojis, asterisks or code blocks. Say numbers and symbols the way a person would. Reply in the language the user speaks.${x ? ' Live data to use in your answer, stated naturally without mentioning sources: ' + x : ''}${v ? ' You can see the screen, camera feed or images the user has shared. Answer from what you see, naturally and briefly.' : ''}${S.mem.length ? ' Things you know about the user: ' + S.mem.join('; ') + '.' : ''} Current date and time: ${new Date().toLocaleString()}.`;
+  return `You are ${P.n.replace(/\./g,'')}, ${P.p} You are speaking aloud in a live voice conversation. Address the user as "${S.name || 'sir'}" now and then, not every sentence. Keep replies to one to three short sentences unless asked for detail. Use plain spoken language only: no markdown, lists, emojis, asterisks or code blocks. Say numbers and symbols the way a person would. Reply in the language the user speaks.${x ? ' Live data to use in your answer, stated naturally without mentioning sources: ' + x : ''}${v ? ' You can see the screen, camera feed or images the user has shared. Answer from what you see, naturally and briefly.' : ''}${S.mem.length ? ' Things you know about the user: ' + S.mem.join('; ') + '.' : ''} The user is based in Kolhapur, India: use Indian Standard Time, Celsius and local context by default. Current date and time in India: ${new Date().toLocaleString('en-IN', {timeZone:TZ})}.`;
 };
 
 async function send(text){
